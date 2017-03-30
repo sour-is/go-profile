@@ -1,0 +1,169 @@
+<?doctype html?>
+<html ng-app='souris-app'>
+  <head>
+    <base href="/" />
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>{{$cfg.title}}</title>
+
+    <link href="/favicon.ico" rel="icon" type="image/x-icon" />
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <link rel="stylesheet" href='//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css' integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous"/>
+    <link rel="stylesheet" href='souris.css' />
+
+        <script type="text/ng-template" id="souris-site-nav-template">
+        <nav class="navbar navbar-hrit navbar-default navbar-fixed-top" role="navigation" >
+            <div class="container-fluid">
+                <div class="navbar-header" ng-init="isCollapsed = true">
+                    <button type="button" class="navbar-toggle collapsed" ng-click="isCollapsed = !isCollapsed">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" ng-href="{{cfg.site_nav.link|default:'/'}}">{{cfg.site_nav.title|default:'Souris'}}</a>
+                </div>
+                <div uib-collapse="isCollapsed" class="navbar-collapse">
+                    <ul class="nav navbar-nav">
+                        <li ng-repeat="top in cfg.site_nav.items" uib-dropdown>
+                            <a ng-if="top.items == undefined" ng-href="{{top.link}}">{{top.title}}</span></a>
+                            <a ng-if="top.items != undefined" uib-dropdown-toggle class="dropdown-toggle">{{top.title}}</span> <span class="caret"></span></a>
+                            <ul ng-if="top.items != undefined" class="dropdown-menu">
+                                <li ng-repeat="sub in top.items" uib-dropdown>
+                                    <a ng-href="{{top.link}}">{{sub.title}}</span></a>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <ul class="nav navbar-nav navbar-right" souris-user-passwd user="$root.$user"></ul>
+                </div>
+            </div>
+        </nav>
+    </script>
+
+    <script type="text/ng-template" id="souris-app-nav-template">
+        <nav class="navbar navbar-subnav" style="margin-top: 50px;">
+          <div class="container" ng-if="cfg.app_nav">
+            <div class="navbar-header" ng-if="cfg.app_nav.title">
+               <a class="navbar-brand" ng-href="{{cfg.app_nav.link|default:'#/'}}">{{cfg.app_nav.title}}</a>
+            </div>
+
+            <ul class="nav nav-pills">
+              <li ng-repeat="i in cfg.app_nav.items" ng-class="{'active':i.active == true}">
+                <a ng-show="i.items == undefined" ng-href="{{i.link}}">{{i.title}}</a>
+
+                <a ng-hide="i.items == undefined" class="dropdown-toggle" role="button" data-target="#" data-toggle="dropdown">{{i.title}} <b class="caret"></b></a>
+                <ul class="dropdown-menu"><li ng-repeat="si in i.items"><a ng-href="{{si.link}}">{{si.title}}</a></li></ul>
+              </li>
+            </ul>
+          </div>
+        </nav>
+    </script>
+
+    <script type="text/ng-template" id="souris-user-mock">
+        <li ng-if="!user.active">
+            <a href='' ng-click="openLogin()"><i class="glyphicon glyphicon-log-in"></i> Login</a>
+        </li>
+        
+        <li ng-if="user.active">
+            <a><span title="{{user.display_name}}"><i class="fa fa-user" ></i> {{user.ident}}</span></a>
+        </li>
+    </script>
+
+    <script type="text/ng-template" id="souris-user-passwd">
+      <li ng-if="!user.active">
+          <a href='' ng-click="openLogin()"><i class="glyphicon glyphicon-log-in"></i> Login</a>
+      </li>
+
+      <li ng-if="user.active" uib-dropdown>
+          <a uib-dropdown-toggle>
+              <span title="{{user.ident}}"><i class="fa fa-user" ></i> {{user.ident}}</span> <span class="caret"></span></a>
+
+          <ul uib-dropdown-menu>
+              <li><a ng-click="user.$logout()"><i class="glyphicon glyphicon-log-out"></i> Logout</a></li>
+          </ul>
+      </li>
+    </script>
+
+    <script type="text/ng-template" id="souris-user-passwd-login">
+      <div class="modal-header" ng-init="mode = 'pass'">
+          <h3 class="modal-title" id="modal-title">Login to {{$root.$cfg.title}}!</h3>
+      </div>
+      <form name="souris-user-login">
+          <div class="modal-body" id="modal-body">
+              <div ng-show="mode == 'pass'">
+                  <input placeholder="Username" class="form-control" type="text" ng-model="ident">
+                  <input placeholder="Secret" class="form-control" type="password" ng-model="secret">
+              </div>
+
+          </div>
+
+          <div class="modal-footer">
+              <button ng-if="mode == 'pass'" class="btn btn-primary" type="submit" ng-click="$login(ident, secret)">OK</button>
+              <button class="btn btn-warning" type="button" ng-click="$dismiss()">Cancel</button>
+          </div>
+      </form>
+    </script>
+
+  </head>
+  <body style="margin-bottom: 2em">
+    <nav souris-site-nav cfg="$root.$cfg"></nav>
+    <span style="float:right; color:lightgray">{{$user.pubkey}}</span>
+    <nav souris-app-nav cfg="$root.$cfg"></nav>
+
+    <div ng-class="{'container':!$cfg.wideview, 'container-fluid': $cfg.wideview}" ng-show="true" ><div ng-view></div></div>
+
+    <div class="container" ng-hide="true">
+        <div style='height:640px; text-align: center'>
+            <h1><i class="fa fa-user-times"></i> Access Restricted.</h1>
+            <br/>This page requires Authentication! Please, Login.
+            <br/>Authorized use only. All activity may be monitored and reported.
+
+        </div>
+
+        <hr/>
+
+        <div style='text-align:center'>
+            <p>For security reasons, please logout and close your web browser when you are done accessing services that require authentication.</p>
+        </div>
+    </div>
+
+    <div class="container" ng-show="false">
+        <div style='height:640px; text-align: center'>
+            <h1><i class="fa fa-user-times"></i> Access Denied.</h1>
+            <br/>The page you have attempted to access is not available to you.
+            <br/>If you accessed this page in error, try to navigate to <a href="/">home</a>.
+            <br/>
+            <br/>Authorized use only. All activity may be monitored and reported.
+        </div>
+
+        <hr/>
+
+        <div style='text-align:center'>
+            <p>For security reasons, please logout and close your web browser when you are done accessing services that require authentication.</p>
+        </div>
+    </div>
+
+    <footer style="position:fixed; bottom:0; width: 100%; height: 2em; background-color: #eee; border-top: 1px solid #bbb; padding: 4px; ">
+        <span style="float:left" class="text-muted">{{$cfg.app_name}}</span>
+        <span style="float:right" class="text-muted">API: {{$cfg.version}}</span>
+    </footer>
+
+    <script src='//cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular.min.js' integrity="sha384-V6/dyDFv85/V/Ktq3ez5B80/c9ZY7jV9c/319rqwNOz3h9CIPdd2Eve0UQBYMMr/"  crossorigin="anonymous"></script>
+    <script src='//cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular-route.min.js' integrity="sha384-vKUG6ZisndNtIFOTSdC1VoTcFLTD9Iv5KMkeIAYhTVQvXaDs6zCW1M3ceLyVccge" crossorigin="anonymous"></script>
+    <script src='//cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular-sanitize.min.js' integrity="sha384-6mdZ2uE+nLsHCD0WAc5WUjyuAEx3EFT+9zHP9fQ/mPWs8eMWtsdRMVpcPBynugk0" crossorigin="anonymous"></script>
+    <script src='//cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular-cookies.min.js' integrity="sha384-BTGv89DKQ9RAwIRyvOIV1UqWupVyKxBwp9pF+DfDfDD7ZpuOpbxQEMpVDGGpMDO3" crossorigin="anonymous"></script>
+
+    <script src='//cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/2.2.0/ui-bootstrap.min.js' integrity="sha384-tdOpZhp2ycVJEfR3c+nRA7fuP6bb60RFoAhRSCzhOrxH+nFMdDTgNjVXNbDolueE" crossorigin="anonymous"></script>
+    <script src='//cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/2.2.0/ui-bootstrap-tpls.min.js' integrity="sha384-VylGEhx9c0rLs0a22oXTBIf7+y1aaUhRmEQ6hu+tnHCY8ic7b82t3DDOaohm8zB0" crossorigin="anonymous"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/remarkable/1.7.1/remarkable.min.js" integrity="sha256-ltAts6+/XysEs9E5RF/t0H+0eD3ET6NpbqzshWkqeic=" crossorigin="anonymous"></script>
+
+    <script src='/souris.js'></script>
+    <script src='app.js'></script>
+ </body>
+</html>
+

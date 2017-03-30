@@ -1,0 +1,8 @@
+localhost:2016
+log   / stdout  "{combined}"
+proxy /app-info localhost:8060
+proxy /profile  localhost:8060
+proxy /oauth    localhost:8060
+proxy /api      localhost:8060
+proxy /idm      localhost:8060
+root public

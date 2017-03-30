@@ -1,0 +1,16 @@
+[Unit]
+Description=sour.is profile API
+After=syslog.target network.target
+  
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/sour.is/
+ExecStart=/opt/sour.is/bin/profile -v serve
+
+Restart=always
+RestartSec=30
+  
+[Install]
+WantedBy=multi-user.target
+

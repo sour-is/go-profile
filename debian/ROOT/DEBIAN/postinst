@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+	systemctl daemon-reload
+
+	if systemctl is-enabled sour.is-profile.service; then
+                systemctl start sour.is-profile.service
+        fi
+
+	sudo chown -R root:root /opt/sour.is
+	sudo chown -R root:root /etc/opt/sour.is
+    ;;
+esac
+
+exit 0

@@ -1,0 +1,8 @@
+Package: sour.is-profile
+Version: 0.1.0-1
+Section: base
+Priority: optional
+Architecture: amd64
+Maintainer: xuu <me@sour.is>
+Description: Authentication and Profile system
+  API tools for building applications.

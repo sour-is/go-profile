@@ -1,0 +1,8 @@
+listen     = ":8060"
+identity   = "header"
+database   = "local"
+
+[db.local]
+type      = "mysql"
+connect   = "profile:profile@tcp(127.0.0.1:3306)/profile"
+

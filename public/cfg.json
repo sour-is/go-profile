@@ -1,0 +1,9 @@
+{"title":"Profile",
+ "app_name":"Sour.is Profile",
+
+ "wideview": false,
+ "site_nav":
+	{"link":"/", "title":"Sour.is", "items":[
+      {"link":"/", "title":"Profile"}
+    ]}
+}

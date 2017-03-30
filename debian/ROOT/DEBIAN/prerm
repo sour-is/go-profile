@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|upgrade)
+        if systemctl is-active sour.is-profile.service; then
+                systemctl stop sour.is-profile.service
+        fi
+    ;;
+esac
+
+exit 0
+
+
