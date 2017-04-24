@@ -6,7 +6,7 @@ After=syslog.target network.target
 Type=simple
 User=www-data
 WorkingDirectory=/opt/sour.is/
-ExecStart=/opt/sour.is/bin/profile -v serve
+ExecStart=/opt/sour.is/bin/profile serve
 
 Restart=always
 RestartSec=30

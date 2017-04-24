@@ -9,24 +9,85 @@ import (
 	"sour.is/x/dbm"
 	"database/sql"
 	"sour.is/x/profile/internal/profile"
+	"sour.is/x/log"
+	"encoding/json"
 )
 
 func init() {
 	httpsrv.IdentRegister("group", httpsrv.IdentRoutes{
-		{"getGroupUsers",   "GET",    "/profile/group.users({aspect:[@0-9a-zA-Z._\\-\\*]+},{group:[@0-9a-zA-Z._\\-\\*]+})", getGroupUsers, },
-		{"putGroupUser",    "PUT",    "/profile/group.user({aspect:[@0-9a-zA-Z._\\-\\*]+},{group:[@0-9a-zA-Z._\\-\\*]+},{user:[@0-9a-zA-Z._\\-\\*]+})", putGroupUser, },
-		{"deleteGroupUser", "DELETE", "/profile/group.user({aspect:[@0-9a-zA-Z._\\-\\*]+},{group:[@0-9a-zA-Z._\\-\\*]+},{user:[@0-9a-zA-Z._\\-\\*]+})", deleteGroupUser, },
+		{"getAspects",          "GET", "/profile/aspect.list",    getAspects},
+		{"putAspect",           "PUT", "/profile/aspect({aspect:[@:0-9a-zA-Z._\\-\\*]+})",    putAspect},
 
-		{"getGroupRoles",   "GET",    "/profile/group.roles({aspect:[@:0-9a-zA-Z._\\-\\*]+},{group:[@:0-9a-zA-Z._\\-\\*]+})", getGroupRoles, },
-		{"putGroupRole",    "PUT",    "/profile/group.role({assign_aspect:[@:0-9a-zA-Z._\\-\\*]+},{assign_group:[@:0-9a-zA-Z._\\-\\*]+},{aspect:[0-9a-zA-Z._\\-\\*]+},{role:[0-9a-zA-Z._\\-\\*]+})", putGroupRole, },
-		{"deleteGroupRole", "DELETE", "/profile/group.role({assign_aspect:[@:0-9a-zA-Z._\\-\\*]+},{assign_group:[@:0-9a-zA-Z._\\-\\*]+},{aspect:[0-9a-zA-Z._\\-\\*]+},{role:[0-9a-zA-Z._\\-\\*]+})", deleteGroupRole, },
+		{"getGroups",           "GET", "/profile/aspect.group({aspect:[@:0-9a-zA-Z._\\-\\*]+})",  getGroups},
+		{"getGroupUsers",       "GET",    "/profile/group.users({aspect:[@0-9a-zA-Z._\\-\\*]+},{group:[@0-9a-zA-Z._\\-\\*]+})", getGroupUsers, },
+		{"putGroupUser",        "PUT",    "/profile/group.user({aspect:[@0-9a-zA-Z._\\-\\*]+},{group:[@0-9a-zA-Z._\\-\\*]+},{user:[@0-9a-zA-Z._\\-\\*]+})", putGroupUser, },
+		{"deleteGroupUser",     "DELETE", "/profile/group.user({aspect:[@0-9a-zA-Z._\\-\\*]+},{group:[@0-9a-zA-Z._\\-\\*]+},{user:[@0-9a-zA-Z._\\-\\*]+})", deleteGroupUser, },
 
-		{"getRoleGroups",   "GET",    "/profile/role.groups({aspect:[@:0-9a-zA-Z._\\-\\*]+},{role:[@:0-9a-zA-Z._\\-\\*]+})", getRoleGroups, },
+		{"getGroupRoles",       "GET",    "/profile/group.roles({aspect:[@:0-9a-zA-Z._\\-\\*]+},{group:[@:0-9a-zA-Z._\\-\\*]+})", getGroupRoles, },
+		{"putGroupRole",        "PUT",    "/profile/group.role({assign_aspect:[@:0-9a-zA-Z._\\-\\*]+},{assign_group:[@:0-9a-zA-Z._\\-\\*]+},{aspect:[@:0-9a-zA-Z._\\-\\*]+},{role:[@:0-9a-zA-Z._\\-\\*]+})", putGroupRole, },
+		{"deleteGroupRole",     "DELETE", "/profile/group.role({assign_aspect:[@:0-9a-zA-Z._\\-\\*]+},{assign_group:[@:0-9a-zA-Z._\\-\\*]+},{aspect:[@:0-9a-zA-Z._\\-\\*]+},{role:[@:0-9a-zA-Z._\\-\\*]+})", deleteGroupRole, },
 
+		{"getRoleGroups",       "GET",    "/profile/role.groups({aspect:[@:0-9a-zA-Z._\\-\\*]+},{role:[@:0-9a-zA-Z._\\-\\*]+})", getRoleGroups, },
 		{"getUserRoles",        "GET", "/profile/user.roles({aspect:[@:0-9a-zA-Z._\\-\\*]+},{user:[@:0-9a-zA-Z._\\-\\*]+})", getUserRoles },
+
 		{"getUserProfile",      "GET", "/profile/user.profile", getUserProfile },
 		{"getUserOtherProfile", "GET", "/profile/user.profile({user:[@:0-9a-zA-Z._\\-\\*]+})", getUserProfile },
+		{"putUserProfile",      "PUT", "/profile/user.profile", putUserProfile },
+		{"putUserOtherProfile", "PUT", "/profile/user.profile({user:[@:0-9a-zA-Z._\\-\\*]+})", putUserProfile },
 	})
+}
+
+func getAspects(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+	var lis []string
+
+	var allow bool
+	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+		// has admin role?
+		if allow, err = model.HasUserRoleTx(tx, i.Aspect(), i.Identity(), "admin"); err != nil {
+			writeMsg(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !allow {
+			lis, err = model.GetAspectList(tx, false)
+			return
+		}
+
+		lis, err = model.GetAspectList(tx, true)
+		return
+	})
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if len(lis) == 0 {
+		writeMsg(w, http.StatusNotFound, "Not Found")
+		return
+	}
+
+	writeObject(w, http.StatusOK, lis)
+}
+func getGroups(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+	vars := mux.Vars(r)
+	aspect := vars["aspect"]
+
+	var lis []string
+
+	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+		lis, err = model.GetGroupList(tx, aspect)
+		return
+	})
+
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if len(lis) == 0 {
+		writeMsg(w, http.StatusNotFound, "Not Found")
+		return
+	}
+
+	writeObject(w, http.StatusOK, lis)
 }
 
 func getGroupUsers (w http.ResponseWriter, r *http.Request, i ident.Ident) {
@@ -64,15 +125,17 @@ func putGroupUser (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	var allow bool
 	var ok bool
 
+	// aspect must match auth
+	if aspect != i.Aspect() {
+		writeMsg(w, http.StatusForbidden, "Aspect should match " + aspect)
+		return
+	}
+
 	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
 		// has group role?
-		if allow, err = model.HasUserRole(tx, i.Aspect(), i.Identity(), "group+" + group, "owner", "admin"); err != nil {
+		if allow, err = model.HasUserRoleTx(tx, i.Aspect(), i.Identity(), "group+" + group, "owner", "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
 			return
-		}
-		// aspect must match auth
-		if aspect != i.Aspect() {
-			allow = false
 		}
 		if !allow {
 			return
@@ -85,16 +148,13 @@ func putGroupUser (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 		return
 	})
-
 	if err != nil {
 		return
 	}
-
 	if !allow {
 		writeMsg(w, http.StatusForbidden, "Access Denied")
 		return
 	}
-
 	if !ok {
 		writeMsg(w, http.StatusNotModified, "Not Modified")
 		return
@@ -109,15 +169,17 @@ func deleteGroupUser (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	user := vars["user"]
 	allow := false
 
+	// / aspect must match auth
+	if aspect != i.Aspect() {
+		writeMsg(w, http.StatusForbidden, "Aspect should match " + aspect)
+		return
+	}
+
 	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
 		// has group role?
-		if allow, err = model.HasUserRole(tx, i.Aspect(), i.Identity(), "group+" + group, "owner", "admin"); err != nil {
+		if allow, err = model.HasUserRoleTx(tx, i.Aspect(), i.Identity(), "group+" + group, "owner", "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
 			return
-		}
-		// aspect must match auth
-		if aspect != i.Aspect() {
-			allow = false
 		}
 		if !allow {
 			return
@@ -178,18 +240,18 @@ func putGroupRole (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	var ok bool
 	var allow bool
 
+	// aspect must match auth
+	if aspect != i.Aspect() {
+		writeMsg(w, http.StatusForbidden, "Aspect should match " + aspect)
+		return
+	}
+
 	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
 		// has role or owner?
-		if allow, err = model.HasUserRole(tx, i.Aspect(), i.Identity(), "role+" + role, "owner", "admin"); err != nil {
+		if allow, err = model.HasUserRoleTx(tx, i.Aspect(), i.Identity(), "role+" + role, "owner", "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-
-		// aspect must match auth
-		if aspect != i.Aspect() {
-			allow = false
-		}
-
 		// check if allowed.
 		if !allow {
 			return
@@ -202,16 +264,13 @@ func putGroupRole (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 		return
 	})
-
 	if err != nil {
 		return
 	}
-
 	if !allow {
 		writeMsg(w, http.StatusForbidden, "Access Denied")
 		return
 	}
-
 	if !ok {
 		writeMsg(w, http.StatusNotModified, "Not Modified")
 		return
@@ -226,23 +285,23 @@ func deleteGroupRole (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	assignAspect := vars["assign_aspect"]
 	assignGroup := vars["assign_group"]
 
-	allow := false
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	log.Debugf("Delete %s/%s : %s/%s", assignAspect, assignGroup, aspect, role)
 
+	allow := false
+
+	// aspect must match auth
+	if aspect != i.Aspect() {
+		writeMsg(w, http.StatusForbidden, "Aspect should match " + aspect)
+		return
+	}
+
+	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
 		// has role or owner?
-		if allow, err = model.HasUserRole(tx, i.Aspect(), i.Identity(), "role+" + role, "owner", "admin"); err != nil {
+		if allow, err = model.HasUserRoleTx(tx, i.Aspect(), i.Identity(), "role+" + role, "owner", "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-
-		// aspect must match auth
-		if aspect != i.Aspect() {
-			allow = false
-			return
-		}
-
 		if !allow {
-			writeMsg(w, http.StatusForbidden, "Access Denied")
 			return
 		}
 
@@ -253,13 +312,12 @@ func deleteGroupRole (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 		return
 	})
-
 	if err != nil {
 		return
 	}
-
 	// check if allowed.
 	if !allow {
+		writeMsg(w, http.StatusForbidden, "Access Denied")
 		return
 	}
 
@@ -290,7 +348,6 @@ func getRoleGroups (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, lis)
 }
-
 func getUserRoles(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
@@ -315,6 +372,7 @@ func getUserRoles(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, lis)
 }
+
 func getUserProfile(w http.ResponseWriter, r *http.Request, i ident.Ident){
 	vars := mux.Vars(r)
 	aspect := i.Aspect()
@@ -333,4 +391,52 @@ func getUserProfile(w http.ResponseWriter, r *http.Request, i ident.Ident){
 	}
 
 	writeObject(w, http.StatusOK, p)
+}
+func putUserProfile(w http.ResponseWriter, r *http.Request, i ident.Ident){
+	var err error
+
+	vars := mux.Vars(r)
+	aspect := i.Aspect()
+	user := i.Identity()
+
+	flag := profile.ProfileAll
+	if u := vars["user"]; u != "" {
+		user = vars["user"]
+		flag = profile.ProfileOther
+	}
+
+	defer r.Body.Close()
+
+	var p profile.Profile
+	if err = json.NewDecoder(r.Body).Decode(&p); err != nil {
+		writeMsg(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var ok bool
+
+	if user == i.Identity() {
+		ok = true
+	}
+	if !ok {
+		ok = i.HasRole("admin")
+	}
+	if !ok {
+		writeMsg(w, http.StatusForbidden, "Access Denied")
+		return
+	}
+
+	err = profile.PutUserProfile(aspect, user, p)
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	p, err = profile.GetUserProfile(aspect, user, flag)
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeObject(w, http.StatusCreated, p)
 }

@@ -14,25 +14,30 @@ import (
 var listen string
 var domain string
 var baseDN string
+var server *ldap.Server
 
 var accessLog = log.New(os.Stdout, "", log.Ldate | log.Ltime | log.LUTC)
 
 type ldapHandler struct {}
 
 func Run() {
-	s := ldap.NewServer()
+	server = ldap.NewServer()
 
 	handler := ldapHandler{}
-	s.BindFunc("", handler)
-	s.SearchFunc("", handler)
+	server.BindFunc("", handler)
+	server.SearchFunc("", handler)
 
-	s.EnforceLDAP = true
+	server.EnforceLDAP = true
 	log.Noticef("Starting LDAP on: %s", listen)
 
-	if err := s.ListenAndServe(listen); err != nil {
+	if err := server.ListenAndServe(listen); err != nil {
 		log.Criticalf("LDAP Server Failed: %s", err.Error())
 		return
 	}
+}
+
+func Shutdown() {
+//	server.Close()
 }
 
 func Config() {
@@ -42,7 +47,7 @@ func Config() {
 }
 
 func (h ldapHandler) Bind(user, password string, conn net.Conn) (ldap.LDAPResultCode, error) {
-	//log.Debugf("%s %s", user, password)
+	log.Debugf("%s %s", user, password)
 
 	user, _ = getUsername(user)
 	if user != "" && password != "" {
@@ -89,7 +94,7 @@ func getUsername(dn string) (user, aspect string) {
 		for _, v := range c {
 			eq := strings.SplitN(v, "=", 2)
 
-			if strings.ToLower(eq[0]) == "cn" {
+			if strings.ToLower(eq[0]) == "uid" {
 				user = eq[1]
 			}
 
@@ -115,6 +120,18 @@ func (h ldapHandler) Search(boundDN string, searchReq ldap.SearchRequest, conn n
 
 	p, err := profile.GetUserProfile(aspect, user, profile.ProfileGlobal)
 	if err != nil {
+		accessLog.Printf(
+			"%s\t%s/%s\t% 12s\t%d\t%s\t%s %s",
+			"ldapSearch",
+			aspect,
+			user,
+			time.Since(start),
+			ldap.LDAPResultSuccess,
+			searchReq.BaseDN,
+			searchReq.Filter,
+			searchReq.Attributes,
+		)
+
 		return ldap.ServerSearchResult{}, err
 	}
 
@@ -134,10 +151,12 @@ func (h ldapHandler) Search(boundDN string, searchReq ldap.SearchRequest, conn n
 		{"cn=" + user + "," + searchReq.BaseDN,
 			[]*ldap.EntryAttribute{
 				{"cn",            []string{user}},
-				{"dispayName",    []string{p.GlobalMap["display_name"]}},
-				{"givenName",     []string{p.GlobalMap["first_name"]}},
-				{"sn",            []string{p.GlobalMap["last_name"]}},
-				{"mail",          []string{p.GlobalMap["email"]}},
+				{"dispayName",    []string{p.GlobalMap["displayName"]}},
+				{"givenName",     []string{p.GlobalMap["givenName"]}},
+				{"sn",            []string{p.GlobalMap["sn"]}},
+				{"mail",          []string{p.GlobalMap["mail"]}},
+				{"initials",      []string{p.GlobalMap["initials"]}},
+				{"url",           []string{p.GlobalMap["url"]}},
 				{"accountStatus", []string{active}},
 				{"uid",           []string{user}},
 				{"memberOf",      []string{admin}},

@@ -16,9 +16,12 @@ $(BINARY): $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	go build
 
 $(ROUTE_ASSET): $(ROUTE_FILES)
-	export PATH=$$GOPATH/bin:$$PATH; cd internal/route; go-bindata-assetfs -pkg route -prefix ../../ ../../public/
+	export PATH=$$GOPATH/bin:$$PATH; cd internal/route; go-bindata-assetfs -pkg route -prefix ../../ ../../public/ ../../public/ui
 
 $(SCHEMA_ASSET): $(SCHEMA_FILES)
 	export PATH=$$GOPATH/bin:$$PATH; go-bindata -pkg main schema/
 
-.PHONEY: clean
+deploy: clean all
+	cd debian && make && make deploy
+
+.PHONEY: clean deploy

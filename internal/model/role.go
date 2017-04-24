@@ -96,7 +96,7 @@ func PutRoleGroup(tx *sql.Tx, aspect, role, assign, group string) (ok bool, err 
 
 	var group_id int
 	if ok, err = HasGroup(tx, assign, group); err != nil {
-		return
+		return false, err
 	}
 
 	if ok {
@@ -106,21 +106,19 @@ func PutRoleGroup(tx *sql.Tx, aspect, role, assign, group string) (ok bool, err 
 	}
 	if err != nil {
 		log.Warning(err)
-		return
+		return false, err
 	}
 
 	if ok, err = HasRoleGroup(tx, aspect, role, group_id, true); err != nil {
 		log.Warning(err)
-		return
+		return false, err
 	}
-
-	if !ok {
-		return
+	if ok {
+		return false, err
 	}
 
 	err = PutRoleGroupId(tx, aspect, role, group_id)
-
-	return
+	return true, err
 }
 
 func DeleteRoleGroup(tx *sql.Tx, aspect, role, assign, group string) (err error) {
@@ -143,7 +141,6 @@ func DeleteRoleGroup(tx *sql.Tx, aspect, role, assign, group string) (err error)
 	if ok, err = HasRoleGroup(tx, aspect, role, group_id, true); err != nil {
 		return
 	}
-
 	if !ok {
 		return
 	}
@@ -209,7 +206,7 @@ func PutRoleGroups(tx *sql.Tx, aspect, role string, newGroups []string) (err err
 	for _, n := range add {
 		if sp := strings.Split(n,"/"); len(sp) > 1 {
 			if err = PutRoleGroup(tx, aspect, role, sp[0], sp[1]); err != nil {
-				log.Print(err.Error())
+				log.Debug(err.Error())
 				return
 			}
 		}
@@ -219,7 +216,7 @@ func PutRoleGroups(tx *sql.Tx, aspect, role string, newGroups []string) (err err
 	for _, n := range del {
 		if sp := strings.Split(n,"/"); len(sp) > 1 {
 			if err = DeleteRoleGroup(tx, aspect, role, sp[0], sp[1]); err != nil {
-				log.Print(err.Error())
+				log.Debug(err.Error())
 				return
 			}
 		}

@@ -15,10 +15,10 @@ import (
 
 func init() {
 	httpsrv.IdentRegister("hash", httpsrv.IdentRoutes{
-		{"getHashList", "GET", "/profile/hash.list({aspect:[@:0-9a-zA-Z._\\-\\*]+})", getHashList, },
-		{"getHash", "GET", "/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", getHash, },
-		{"putHash", "PUT", "/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", putHash, },
-		{"deleteHash", "DELETE", "/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", deleteHash, },
+		{"getHashList", "GET",    "/profile/hash.list({aspect:[@:0-9a-zA-Z._\\-\\*]+})", getHashList, },
+		{"getHash",     "GET",    "/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", getHash, },
+		{"putHash",     "PUT",    "/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", putHash, },
+		{"deleteHash",  "DELETE", "/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", deleteHash, },
 	})
 }
 
@@ -27,14 +27,33 @@ func getHashList (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	aspect := vars["aspect"]
 
 	var lis []string
+	var allow bool
 
 	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+		// has group role?
+		if allow, err = model.HasUserRoleTx(tx, i.Aspect(), i.Identity(), "owner", "admin"); err != nil {
+			writeMsg(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		// aspect must match auth
+		if aspect != i.Aspect() {
+			allow = false
+		}
+		if !allow {
+			return
+		}
+
 		lis, err = model.GetHashList(tx, aspect)
 		return
 	})
 
 	if err != nil {
 		writeMsg(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if !allow {
+		writeMsg(w, http.StatusForbidden, "Access Denied")
 		return
 	}
 
@@ -45,7 +64,6 @@ func getHashList (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, lis)
 }
-
 func getHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
@@ -56,7 +74,7 @@ func getHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	var m map[string]string
 
 	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
-		if ok, err = model.HasUserRole(
+		if ok, err = model.HasUserRoleTx(
 			tx,
 			i.Aspect(),
 			i.Identity(),
@@ -78,11 +96,7 @@ func getHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			return
 		}
 
-
-		if m, err = model.GetHashMap(tx, aspect, name); len(m) == 0 {
-			writeMsg(w, http.StatusNotFound, "Not Found")
-			return
-		}
+		m, ok, err = model.GetHashMap(tx, aspect, name)
 		if err != nil {
 			return
 		}
@@ -100,9 +114,13 @@ func getHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		return
 	}
 
+	if !ok {
+		writeMsg(w, http.StatusNotFound, "Not Found")
+		return
+	}
+
 	writeObject(w, http.StatusOK, m)
 }
-
 func putHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
@@ -110,18 +128,27 @@ func putHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	defer r.Body.Close()
 
+	var err error
+	var keys map[string]string
+	if err = json.NewDecoder(r.Body).Decode(&keys); err != nil {
+		writeMsg(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var ok bool
 	var allow bool
 	var m map[string]string
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
 		// has hash role?
-		allow, err = model.HasUserRole(
+		allow, err = model.HasUserRoleTx(
 			tx,
 			i.Aspect(),
 			i.Identity(),
 			"hash.write." + name,
 			"hash.writer",
-			"owner")
+			"owner",
+			"admin")
 		if err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
 			return
@@ -135,19 +162,12 @@ func putHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			return
 		}
 
-		var keys map[string]string
-
-		if err = json.NewDecoder(r.Body).Decode(&keys); err != nil {
-			writeMsg(w, http.StatusBadRequest, err.Error())
-			return
-		}
-
 		if err = model.PutHashMap(tx, aspect, name, keys); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		m, err = model.GetHashMap(tx, aspect, name);
+		m, ok, err = model.GetHashMap(tx, aspect, name);
 
 		return
 	})
@@ -162,13 +182,12 @@ func putHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	}
 
 	if len(m) == 0 {
-		writeMsg(w, http.StatusNotFound, "Not Found")
+		writeObject(w, http.StatusNoContent, m)
 		return
 	}
 
 	writeObject(w, http.StatusCreated, m)
 }
-
 func deleteHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
@@ -177,11 +196,10 @@ func deleteHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	defer r.Body.Close()
 
 	var allow bool
-	keys := make(map[string]string)
 
 	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
 		// has hash role?
-		allow, err = model.HasUserRole(
+		allow, err = model.HasUserRoleTx(
 			tx,
 			i.Aspect(),
 			i.Identity(),
@@ -200,7 +218,7 @@ func deleteHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			return
 		}
 
-		if err = model.PutHashMap(tx, aspect, name, keys); err != nil {
+		if _, err = model.DeleteHashMap(tx, aspect, name); err != nil {
 			return
 		}
 

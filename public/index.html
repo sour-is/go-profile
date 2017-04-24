@@ -9,12 +9,50 @@
     <title>{{$cfg.title}}</title>
 
     <link href="/favicon.ico" rel="icon" type="image/x-icon" />
-    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
-    <link rel="stylesheet" href='//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css' integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous"/>
-    <link rel="stylesheet" href='souris.css' />
 
-        <script type="text/ng-template" id="souris-site-nav-template">
+    <link rel="stylesheet" href='//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css' integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous"/>
+
+    <link ng-if="$cfg.theme == 'light'" href="https://maxcdn.bootstrapcdn.com/bootswatch/3.3.7/spacelab/bootstrap.min.css" rel="stylesheet" integrity="sha384-L/tgI3wSsbb3f/nW9V6Yqlaw3Gj7mpE56LWrhew/c8MIhAYWZ/FNirA64AVkB5pI" crossorigin="anonymous">
+    <link ng-if="$cfg.theme == 'light'" rel="stylesheet" href='/ui/souris-light.css' />
+
+    <link ng-if="$cfg.theme == 'dark'"  href="https://maxcdn.bootstrapcdn.com/bootswatch/3.3.7/slate/bootstrap.min.css" rel="stylesheet" integrity="sha384-RpX8okQqCyUNG7PlOYNybyJXYTtGQH+7rIKiVvg1DLg6jahLEk47VvpUyS+E2/uJ" crossorigin="anonymous">
+    <link ng-if="$cfg.theme == 'dark'" rel="stylesheet" href='/ui/souris-dark.css' />
+
+    <script type="text/ng-template" id="souris-access-restricted">
+          <div style='height:640px; text-align: center'>
+              <div ng-if="$user.error == true" class="alert alert-danger">
+                  <b>Authentication Error:</b> The supplied username and password are invalid.
+              </div>
+
+              <h1><i class="fa fa-user-times"></i> Access Restricted.</h1>
+              <br/>This page requires Authentication! Please, Login.
+              <br/>Authorized use only. All activity may be monitored and reported.
+
+          </div>
+
+          <hr/>
+
+          <div style='text-align:center'>
+              <p>For security reasons, please logout and close your web browser when you are done accessing services that require authentication.</p>
+          </div>
+      </script>
+    <script type="text/ng-template" id="souris-access-denied">
+          <div style='height:640px; text-align: center'>
+              <h1><i class="fa fa-user-times"></i> Access Denied.</h1>
+              <br/>The page you have attempted to access is not available to you.
+              <br/>If you accessed this page in error, try to navigate to <a href="/">home</a>.
+              <br/>
+              <br/>Authorized use only. All activity may be monitored and reported.
+          </div>
+
+          <hr/>
+
+          <div style='text-align:center'>
+              <p>For security reasons, please logout and close your web browser when you are done accessing services that require authentication.</p>
+          </div>
+
+      </script>
+    <script type="text/ng-template" id="souris-site-nav-template">
         <nav class="navbar navbar-hrit navbar-default navbar-fixed-top" role="navigation" >
             <div class="container-fluid">
                 <div class="navbar-header" ng-init="isCollapsed = true">
@@ -24,11 +62,11 @@
                         <span class="icon-bar"></span>
                         <span class="icon-bar"></span>
                     </button>
-                    <a class="navbar-brand" ng-href="{{cfg.site_nav.link|default:'/'}}">{{cfg.site_nav.title|default:'Souris'}}</a>
+                    <a class="navbar-brand" ng-href="{{$cfg.site_nav.link|default:'/'}}" ng-click="$root.isCollapsed = true">{{cfg.site_nav.title|default:'Souris'}}</a>
                 </div>
                 <div uib-collapse="isCollapsed" class="navbar-collapse">
-                    <ul class="nav navbar-nav">
-                        <li ng-repeat="top in cfg.site_nav.items" uib-dropdown>
+                    <ul class="nav navbar-nav" ng-click="$root.isCollapsed = true">
+                        <li ng-repeat="top in $cfg.site_nav.items" uib-dropdown>
                             <a ng-if="top.items == undefined" ng-href="{{top.link}}">{{top.title}}</span></a>
                             <a ng-if="top.items != undefined" uib-dropdown-toggle class="dropdown-toggle">{{top.title}}</span> <span class="caret"></span></a>
                             <ul ng-if="top.items != undefined" class="dropdown-menu">
@@ -39,21 +77,20 @@
                         </li>
                     </ul>
 
-                    <ul class="nav navbar-nav navbar-right" souris-user-passwd user="$root.$user"></ul>
+                    <ul class="nav navbar-nav navbar-right" souris-user-passwd user="$user"></ul>
                 </div>
             </div>
         </nav>
     </script>
-
     <script type="text/ng-template" id="souris-app-nav-template">
-        <nav class="navbar navbar-subnav" style="margin-top: 50px;">
-          <div class="container" ng-if="cfg.app_nav">
-            <div class="navbar-header" ng-if="cfg.app_nav.title">
-               <a class="navbar-brand" ng-href="{{cfg.app_nav.link|default:'#/'}}">{{cfg.app_nav.title}}</a>
+        <nav class="navbar navbar-subnav" ng-if="$cfg.app_nav">
+          <div class="container">
+            <div class="navbar-header" ng-if="$cfg.app_nav.title">
+               <a class="navbar-brand" ng-href="{{$cfg.app_nav.link|default:'#/'}}">{{cfg.app_nav.title}}</a>
             </div>
 
             <ul class="nav nav-pills">
-              <li ng-repeat="i in cfg.app_nav.items" ng-class="{'active':i.active == true}">
+              <li ng-repeat="i in $cfg.app_nav.items" ng-class="{'active':i.active == true}">
                 <a ng-show="i.items == undefined" ng-href="{{i.link}}">{{i.title}}</a>
 
                 <a ng-hide="i.items == undefined" class="dropdown-toggle" role="button" data-target="#" data-toggle="dropdown">{{i.title}} <b class="caret"></b></a>
@@ -63,7 +100,6 @@
           </div>
         </nav>
     </script>
-
     <script type="text/ng-template" id="souris-user-mock">
         <li ng-if="!user.active">
             <a href='' ng-click="openLogin()"><i class="glyphicon glyphicon-log-in"></i> Login</a>
@@ -73,10 +109,12 @@
             <a><span title="{{user.display_name}}"><i class="fa fa-user" ></i> {{user.ident}}</span></a>
         </li>
     </script>
-
     <script type="text/ng-template" id="souris-user-passwd">
       <li ng-if="!user.active">
-          <a href='' ng-click="openLogin()"><i class="glyphicon glyphicon-log-in"></i> Login</a>
+        <a href='' ng-click="user.openRegister(); $root.isCollapsed = true"><i class="glyphicon glyphicon-pencil"></i> Register</a>
+      </li>
+      <li ng-if="!user.active">
+        <a href='' ng-click="user.openLogin(); $root.isCollapsed = true"><i class="glyphicon glyphicon-log-in"></i> Login</a>
       </li>
 
       <li ng-if="user.active" uib-dropdown>
@@ -84,73 +122,90 @@
               <span title="{{user.ident}}"><i class="fa fa-user" ></i> {{user.ident}}</span> <span class="caret"></span></a>
 
           <ul uib-dropdown-menu>
-              <li><a ng-click="user.$logout()"><i class="glyphicon glyphicon-log-out"></i> Logout</a></li>
+              <li ng-if="user.$role('admin')"><a ng-href="/admin" ng-click="$root.isCollapsed = true"><i class="glyphicon glyphicon-dashboard"></i> Admin</a></li>
+              <li><a href="/profile" ng-click="$root.isCollapsed = true"><i class="glyphicon glyphicon-user"></i> Profile</a></li>
+              <li><a ng-click="user.$logout(); $root.isCollapsed = true"><i class="glyphicon glyphicon-log-out"></i> Logout</a></li>
           </ul>
       </li>
     </script>
-
-    <script type="text/ng-template" id="souris-user-passwd-login">
-      <div class="modal-header" ng-init="mode = 'pass'">
-          <h3 class="modal-title" id="modal-title">Login to {{$root.$cfg.title}}!</h3>
+    <script type="text/ng-template" id="souris-user-passwd-update">
+      <div class="modal-header">
+          <h3 class="modal-title">Update Password</h3>
       </div>
-      <form name="souris-user-login">
-          <div class="modal-body" id="modal-body">
-              <div ng-show="mode == 'pass'">
-                  <input placeholder="Username" class="form-control" type="text" ng-model="ident">
-                  <input placeholder="Secret" class="form-control" type="password" ng-model="secret">
+      <form name="souris-user-passwd" ng-submit="$passwd(secret)">
+          <div class="modal-body">
+              <div ng-class="{'has-error':check != '' && secret != check}">
+                  <input placeholder="New Password" required class="form-control" type="password" ng-model="secret">
+                  <input placeholder="Check Password" required class="form-control" type="password" ng-model="check">
               </div>
-
           </div>
 
           <div class="modal-footer">
-              <button ng-if="mode == 'pass'" class="btn btn-primary" type="submit" ng-click="$login(ident, secret)">OK</button>
-              <button class="btn btn-warning" type="button" ng-click="$dismiss()">Cancel</button>
+              <button class="btn btn-primary" type="submit">Update Password</button>
+              <button class="btn btn-default" type="button" ng-click="$dismiss()">Cancel</button>
           </div>
       </form>
     </script>
+    <script type="text/ng-template" id="souris-user-passwd-login">
+          <div class="modal-header">
+              <h3 class="modal-title" id="modal-title">Login to {{$root.$cfg.site_name}}!</h3>
+          </div>
+          <form name="souris-user-login" ng-submit="$login(ident, secret)">
+              <div class="modal-body">
+                  <div>
+                      <input placeholder="Username" required class="form-control" type="text" ng-model="ident">
+                      <input placeholder="Password" required class="form-control" type="password" ng-model="secret">
+                  </div>
+              </div>
 
+              <div class="modal-footer">
+                  <button class="btn btn-primary" type="submit">Login</button>
+                  <button class="btn btn-default" type="button" ng-click="$dismiss()">Cancel</button>
+              </div>
+          </form>
+      </script>
+    <script type="text/ng-template" id="souris-user-passwd-register">
+      <div class="modal-header">
+          <h3 class="modal-title">Register for {{$root.$cfg.site_name}}!</h3>
+      </div>
+
+      <form name="souris-user-passwd-register" ng-submit="$register(ident, password, captcha, code)">
+          <div class="modal-body">
+              <label for="ident">Username</label>
+              <input id="ident" type="text" class="form-control" ng-model="ident" placeholder="Username">
+              <label for="password">Password</label>
+              <input id="password" type="password" class="form-control" ng-model="password" placeholder="Password">
+              <label for="verify">Verify Password</label>
+              <input id="verify" type="password" class="form-control" ng-model="verify" placeholder="Verify">
+
+              <div style="text-align:center">
+              <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                   ng-src="/profile/captcha/{{captcha}}.png"
+                   height="80" width="240" class="img-rounded"/>
+              </div>
+
+              <div ng-show="error != undefiend" class="alert alert-danger"><b>Error Registering:</b> {{error.msg}}</div>
+              <label for="code">Captcha Code</label>
+              <input id="code" type="text" class="form-control" ng-model="code" maxlength=6 placeholder="Captcha Code">
+          </div>
+          <div class="modal-footer">
+              <button class="btn btn-primary">Register</button>
+              <button class="btn btn-default" type="button" ng-click="$dismiss()">Cancel</button>
+          </div>
+      </form>
+    </script>
   </head>
-  <body style="margin-bottom: 2em">
+  <body style="margin-bottom: 2em; margin-top: 80px;">
     <nav souris-site-nav cfg="$root.$cfg"></nav>
-    <span style="float:right; color:lightgray">{{$user.pubkey}}</span>
     <nav souris-app-nav cfg="$root.$cfg"></nav>
 
-    <div ng-class="{'container':!$cfg.wideview, 'container-fluid': $cfg.wideview}" ng-show="true" ><div ng-view></div></div>
+    <div ng-class="{'container':!$cfg.wideview, 'container-fluid': $cfg.wideview}" ng-show="!$cfg.denied && ($cfg.guest || $user.active)" ><div ng-view></div></div>
+    <div class="container" ng-hide="$cfg.guest || $user.active" ng-include="'souris-access-restricted'"></div>
+    <div class="container" ng-show="$cfg.denied && $user.active" ng-include="'souris-access-denied'"></div>
 
-    <div class="container" ng-hide="true">
-        <div style='height:640px; text-align: center'>
-            <h1><i class="fa fa-user-times"></i> Access Restricted.</h1>
-            <br/>This page requires Authentication! Please, Login.
-            <br/>Authorized use only. All activity may be monitored and reported.
-
-        </div>
-
-        <hr/>
-
-        <div style='text-align:center'>
-            <p>For security reasons, please logout and close your web browser when you are done accessing services that require authentication.</p>
-        </div>
-    </div>
-
-    <div class="container" ng-show="false">
-        <div style='height:640px; text-align: center'>
-            <h1><i class="fa fa-user-times"></i> Access Denied.</h1>
-            <br/>The page you have attempted to access is not available to you.
-            <br/>If you accessed this page in error, try to navigate to <a href="/">home</a>.
-            <br/>
-            <br/>Authorized use only. All activity may be monitored and reported.
-        </div>
-
-        <hr/>
-
-        <div style='text-align:center'>
-            <p>For security reasons, please logout and close your web browser when you are done accessing services that require authentication.</p>
-        </div>
-    </div>
-
-    <footer style="position:fixed; bottom:0; width: 100%; height: 2em; background-color: #eee; border-top: 1px solid #bbb; padding: 4px; ">
+    <footer style="position:fixed; bottom:0; width: 100%; height: 2em; border-top: 1px solid #bbb; padding: 4px" class="panel-footer">
         <span style="float:left" class="text-muted">{{$cfg.app_name}}</span>
-        <span style="float:right" class="text-muted">API: {{$cfg.version}}</span>
+        <span style="float:right" class="text-muted">Theme: <a ng-click="$root.$theme()">{{$cfg.theme}}</a> &mdash; API: {{$cfg.version}}</span>
     </footer>
 
     <script src='//cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular.min.js' integrity="sha384-V6/dyDFv85/V/Ktq3ez5B80/c9ZY7jV9c/319rqwNOz3h9CIPdd2Eve0UQBYMMr/"  crossorigin="anonymous"></script>
@@ -162,8 +217,7 @@
     <script src='//cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/2.2.0/ui-bootstrap-tpls.min.js' integrity="sha384-VylGEhx9c0rLs0a22oXTBIf7+y1aaUhRmEQ6hu+tnHCY8ic7b82t3DDOaohm8zB0" crossorigin="anonymous"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/remarkable/1.7.1/remarkable.min.js" integrity="sha256-ltAts6+/XysEs9E5RF/t0H+0eD3ET6NpbqzshWkqeic=" crossorigin="anonymous"></script>
 
-    <script src='/souris.js'></script>
+    <script src='/ui/souris.js'></script>
     <script src='app.js'></script>
  </body>
 </html>
-

@@ -11,14 +11,18 @@ import (
 	"fmt"
 	"github.com/tumdum/bencoding"
 	"golang.org/x/crypto/ed25519"
-	"sour.is/x/profile/internal/model"
 
 	"regexp"
-	"crypto/rand"
-	"sour.is/x/dbm"
 	"time"
 	"sour.is/x/profile/internal/profile"
 	"strings"
+	"github.com/dchest/captcha"
+	"github.com/gorilla/mux"
+	"hash/crc32"
+	"crypto/sha256"
+	"sour.is/x/dbm"
+	"database/sql"
+	"sour.is/x/profile/internal/model"
 )
 
 func init() {
@@ -36,17 +40,208 @@ func init() {
 		{"rubiconSignoutToken", "GET", "/api/v1/authentication/signoutToken", rubiconSignoutToken},
 
 		// OAuth Compatibility
-		{"oauthAuth", "GET", "/oauth/auth", oauthAuth},
-		{"oauthToken", "POST", "/oauth/token", oauthToken},
-		{"oauthToken", "GET", "/oauth/user", oauthUser},
+		{"oauthToken", "POST", "/profile/oauth.token", oauthToken},
 
+		{"captcha",     "GET", "/profile/captcha/new",               captchaGen},
+		{"captcha",     "GET", "/profile/captcha/json",             captchaJson},
+		{"captchaCode", "GET", "/profile/captcha/{path}",           captchaCode},
+		{"captchaTest", "GET", "/profile/captcha/{captcha}/{code}", captchaTest},
+	})
+
+	httpsrv.IdentRegister("oauth", httpsrv.IdentRoutes{
+		{"oauthClient",    "GET",  "/profile/oauth.authorize", oauthClient},
+		{"oauthAuthorize", "POST", "/profile/oauth.authorize",   oauthAuth},
+		{"oauthUser",      "GET",  "/profile/oauth.user",        oauthUser},
+		{"putRegister",    "POST", "/profile/user.passwd",      postPasswd},
 	})
 }
 
-func oauthAuth(w http.ResponseWriter, r *http.Request) {}
-func oauthToken(w http.ResponseWriter, r *http.Request) {}
-func oauthUser(w http.ResponseWriter, r *http.Request) {
+func captchaGen(w http.ResponseWriter, r *http.Request) {
+	id := captcha.New()
+	http.Redirect(w, r, "/profile/captcha/" + id + ".png", 302)
+}
+func captchaJson(w http.ResponseWriter, r *http.Request) {
+	d := struct{
+		Captcha string `json:"captcha"`
+	}{
+		captcha.New(),
+	}
+
+	writeObject(w, 201, d)
+}
+func captchaCode(w http.ResponseWriter, r *http.Request) {
+	h := captcha.Server(240,80)
+	h.ServeHTTP(w, r)
+}
+func captchaTest(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["captcha"]
+	code := vars["code"]
+
+	if !captcha.VerifyString(id, code) {
+		writeMsg(w, 401, "Invalid Code")
+		return
+	}
+
+	writeMsg(w, 200, "Valid Code")
+}
+
+func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+	defer r.Body.Close()
+
+	var req map[string]string
+
+	var ok bool
+	var err error
+	var c map[string]string
+
+	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		return
+	}
+
+	client := req["client_id"]
+	redirect := req["redirect_uri"]
+	state := req["state"]
+
+	if !i.LoggedIn() {
+		writeMsg(w, http.StatusForbidden, "NOT_AUTHORIZED")
+		return
+	}
+
+	ok, c, err = profile.GetHashMap("oauth-client", client)
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		return
+	}
+	if !ok {
+		writeMsg(w, http.StatusNotFound, "NOT_FOUND")
+		return
+	}
+
+	if redirect != c["redirect"] {
+		writeMsg(w, http.StatusBadRequest, "REDIRECT_NOMATCH")
+		return
+	}
+
+	sha := sha256.Sum256([]byte(state))
+	code := enc(sha[:])
+
+	var m map[string]string
+	atUser := "@" + strings.ToLower(i.Identity())
+
+	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+		if m, ok, err = model.GetHashMap(tx, atUser, client); err != nil {
+			return
+		}
+		if ok {
+			return
+		}
+
+		m = map[string]string{"ident": i.Identity(), "client": client}
+		err = model.PutHashMap(tx, "oauth-token", code, m)
+
+		m = map[string]string{"code": code}
+		err = model.PutHashMap(tx, atUser, "OAUTH_" + client, m)
+
+		return
+	})
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		return
+	}
+
+	writeObject(w, http.StatusOK, m)
+}
+func oauthClient(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+	client := r.URL.Query().Get("client_id")
+
+	ok, c, err := profile.GetHashMap("oauth-client", client)
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		return
+	}
+	if !ok {
+		writeMsg(w, http.StatusNotFound, "NOT_FOUND")
+		return
+	}
+
+	writeObject(w, http.StatusOK, map[string]string{"name": c["name"]})
+}
+func oauthToken(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var err error
+
+	code := r.FormValue("code")
+	clientId := r.FormValue("client_id")
+	secret := r.FormValue("client_secret")
+
+	var client map[string]string
+	var user map[string]string
+	var ok bool
+
+	if _, client, err = profile.GetHashMap("oauth-client", clientId); err != nil {
+		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		return
+	}
+
+	if secret != client["secret"] {
+		writeMsg(w, http.StatusForbidden, "WRONG_SECRET")
+		return
+	}
+
+	if _, user, err = profile.GetHashMap("oauth-token", code); err != nil {
+		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		return
+	}
+
+	if clientId != user["client"] {
+		writeMsg(w, http.StatusForbidden, "WRONG_CLIENT-ID")
+		return
+	}
+
+	atUser := "@" + strings.ToLower(user["ident"])
+	if ok, _, err = profile.GetHashMap(atUser, "OAUTH_" + clientId); err != nil {
+		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		return
+	}
+
+	if !ok {
+		profile.DeleteHashMap("oauth-token", code)
+		writeMsg(w, http.StatusForbidden, "TOKEN_EXPIRED")
+		return
+	}
+
+	var token string
+	if token, _, _, err = profile.MakeSession("default", user["ident"], profile.ProfileNone); err != nil {
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR:" + err.Error())
+		return
+	}
+
+	o := OAuthToken{token, "bearer", 7200, code}
+	log.Debug(o)
+
+	writeObject(w, http.StatusOK, o)
+}
+func oauthUser(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+	if !i.LoggedIn() {
+		writeMsg(w, http.StatusForbidden, "NOT_AUTHORIZED")
+		return
+	}
+
+	p, err := profile.GetUserProfile("oauth", i.Identity(), profile.ProfileGlobal)
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		return
+	}
+
 	o := OAuthUser{}
+	o.Id = int(crc32.ChecksumIEEE([]byte(p.Ident)))
+	o.Username = p.Ident
+	o.Email = p.GlobalMap["mail"]
+	o.Name = p.GlobalMap["displayName"]
+
 
 	writeObject(w, http.StatusOK, o)
 }
@@ -83,86 +278,93 @@ type OAuthIdentity struct {
 	Provider string  `json:"provider"`
 	ExternId string  `json:"extern_id"`
 }
+type OAuthToken struct {
+	Access  string `json:"access_token"`
+	Type    string `json:"token_type"`
+	Expires int    `json:"expires_in"`
+	Refresh string `json:"refresh_token"`
+}
 
 func putRegister(w http.ResponseWriter, r *http.Request) {
 
 	defer r.Body.Close()
 
-	tx, err := dbm.GetDB()
-	defer checktx(tx, err)
-
+	var err error
 	var reg UserCredential
 	if err = json.NewDecoder(r.Body).Decode(&reg); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, "MALFORMED_REQUEST")
+		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST:" + err.Error())
+		return
+	}
+	if !captcha.VerifyString(reg.Captcha, reg.Code) {
+		writeMsg(w, 401, "Invalid_Captcha")
 		return
 	}
 
 	var ok bool
-
-	if ok, err = regexp.Match(`[a-z0-9\\-\\_]+`, []byte(reg.Ident)); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	if ok, err = regexp.Match(`[A-Za-z0-9\\-\\_]+`, []byte(reg.Ident)); err != nil {
+		writeMsg(w, http.StatusBadRequest, "BAD_USERNAME:" + err.Error())
 		return
 	}
 	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, "BAD_USERNAME")
+		writeMsg(w, http.StatusBadRequest, "BAD_USERNAME")
 		return
 	}
 
-	// Hash the username and password.
-	rnd := make([]byte, 32)
-	rand.Read(rnd)
-	salt := fmt.Sprintf("%x", rnd)
-	pkey, err := profile.PassEd25519(reg.Ident, reg.Password, salt)
-
+	ok, err = profile.CreateUser(reg.Ident, reg.Password)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, "UNKNOWN_ERR")
+		writeMsg(w, http.StatusInternalServerError, "UNKNOWN_ERR: " + err.Error())
+		return
+	}
+	if !ok {
+		writeMsg(w, http.StatusConflict, "ALREADY_REGISTERED")
 		return
 	}
 
-	keys := make(map[string]string)
-	keys["ed25519"] = pkey
-	keys["salt"] = salt
-
-	atUser := "@" + reg.Ident
-
-	if ok, err = model.HasHash(tx, atUser, "ident"); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	if ok {
-		w.WriteHeader(http.StatusConflict)
-		fmt.Fprint(w, "ALREADY_REGISTERED")
-		return
-	}
-
-	// Write to ident hash.
-	if err = model.PutHashMap(tx, atUser, "ident", keys); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	if _, err = model.PutGroupUser(tx, "default", "USERS", reg.Ident); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	fmt.Fprint(w, "")
+	writeMsg(w, http.StatusCreated, "USER_REGISTERED")
 }
+func postPasswd(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+
+	defer r.Body.Close()
+
+	var ok bool
+	var err error
+	var cred UserCredential
+
+	if err = json.NewDecoder(r.Body).Decode(&cred); err != nil {
+		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST: " + err.Error())
+		return
+	}
+
+	if cred.Ident == "" || cred.Password == ""{
+		writeMsg(w, http.StatusForbidden, "AUTH_FAILED")
+		return
+	}
+
+	if ok, err = profile.SetPassword(i.Identity(), cred.Password); err != nil {
+		writeMsg(w, http.StatusBadRequest, "ERROR: " + err.Error())
+		return
+	}
+
+	if !ok {
+		writeMsg(w, http.StatusForbidden, "NO_USER")
+		return
+	}
+
+	writeMsg(w, http.StatusCreated, "SET_PASSWD")
+}
+
 
 type UserCredential struct {
 	Ident    string `json:"ident"`
 	Aspect   string `json:"aspect"`
 	Password string `json:"password"`
+	Captcha  string `json:"captcha"`
+	Code     string `json:"code"`
 }
 type UserSession struct {
 	profile.Profile
 	Token   string  `json:"token"`
-	Expires int64     `json:"expires"`
+	Expires int64   `json:"expires"`
 }
 
 func postSession(w http.ResponseWriter, r *http.Request) {
@@ -173,8 +375,7 @@ func postSession(w http.ResponseWriter, r *http.Request) {
 	var cred UserCredential
 
 	if err = json.NewDecoder(r.Body).Decode(&cred); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, "MALFORMED_REQUEST")
+		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST: " + err.Error())
 		return
 	}
 	if cred.Ident == "" || cred.Password == ""{
@@ -184,7 +385,7 @@ func postSession(w http.ResponseWriter, r *http.Request) {
 
 	var ok bool
 	if ok, err = profile.CheckPassword(cred.Ident, cred.Password); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR")
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR:" + err.Error())
 		return
 	}
 	if !ok {
@@ -197,31 +398,33 @@ func postSession(w http.ResponseWriter, r *http.Request) {
 	var p profile.Profile
 
 	if key, expires, p, err = profile.MakeSession(cred.Aspect, cred.Ident, profile.ProfileAll); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR")
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR:" + err.Error())
 		return
 	}
 
 	s := UserSession{p, key, expires.UnixNano()}
-
 	writeObject(w, http.StatusCreated, s)
 }
 func deleteSession(w http.ResponseWriter, r *http.Request) {
 
-	token := r.Header.Get("authorization")
-
 	var ok bool
 	var err error
 
-	if !strings.HasPrefix("souris", token) {
+	authorization := strings.Fields(r.Header.Get("authorization"))
+
+	if "souris" != authorization[0] {
 		w.Header().Add("www-authenticate", `souris realm="Souris Token"`)
 		writeMsg(w, http.StatusUnauthorized, "Authorization Required")
 		return
 	}
 
-	token = strings.TrimPrefix("souris ", token)
+	token := authorization[1]
+	if len(authorization) > 2 {
+		token = authorization[2]
+	}
 
 	if ok, err = profile.DeleteSession(token); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR")
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: " + err.Error())
 		return
 	}
 	if !ok {
@@ -258,16 +461,14 @@ func rubiconAuthUser(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	var creds RubiconCredentials
-
 	if err = json.NewDecoder(r.Body).Decode(&creds); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, "MALFORMED_REQUEST")
+		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST: " + err.Error())
 		return
 	}
 
 	var ok bool
 	if ok, err = profile.CheckPassword(creds.Username, creds.Password); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR")
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: " + err.Error())
 		return
 	}
 	if !ok {
@@ -280,7 +481,7 @@ func rubiconAuthUser(w http.ResponseWriter, r *http.Request) {
 	var p profile.Profile
 
 	if key, expires, p, err = profile.MakeSession("rubicon", creds.Username, profile.ProfileGlobal); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR")
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: " + err.Error())
 		return
 	}
 
@@ -290,24 +491,22 @@ func rubiconAuthUser(w http.ResponseWriter, r *http.Request) {
 		RubiconUserInfo{
 			1,
 			creds.Username,
-			p.GlobalMap["email"],
-			p.GlobalMap["first_name"],
-			p.GlobalMap["last_name"],
+			p.GlobalMap["mail"],
+			p.GlobalMap["givenName"],
+			p.GlobalMap["sn"],
 		},
 	}
 
 	writeObject(w, http.StatusCreated, ua)
 }
 func rubiconCheckToken(w http.ResponseWriter, r *http.Request) {
-
-	token := r.URL.Query().Get("user_token")
-
 	var ok bool
 	var err error
 	var p profile.Profile
 
+	token := r.URL.Query().Get("user_token")
 	if ok, p, err = profile.CheckSession("rubicon", token, profile.ProfileGlobal); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR")
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: " + err.Error())
 		return
 	}
 	if !ok {
@@ -318,22 +517,20 @@ func rubiconCheckToken(w http.ResponseWriter, r *http.Request) {
 	ui := RubiconUserInfo{
 		1,
 		p.Ident,
-		p.GlobalMap["email"],
-		p.GlobalMap["first_name"],
-		p.GlobalMap["last_name"],
+		p.GlobalMap["mail"],
+		p.GlobalMap["givenName"],
+		p.GlobalMap["sn"],
 	}
 
 	writeObject(w, http.StatusOK, ui)
 }
 func rubiconSignoutToken(w http.ResponseWriter, r *http.Request) {
-
-	token := r.URL.Query().Get("user_token")
-
 	var ok bool
 	var err error
 
+	token := r.URL.Query().Get("user_token")
 	if ok, err = profile.DeleteSession(token); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR")
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: " + err.Error())
 		return
 	}
 	if !ok {
@@ -343,7 +540,6 @@ func rubiconSignoutToken(w http.ResponseWriter, r *http.Request) {
 
 	writeObject(w, http.StatusNoContent, "LOGGED_OUT")
 }
-
 
 // Check Auth
 
@@ -420,7 +616,7 @@ func (t AuthToken) Sign(skey string) (s AuthSignature, err error) {
 	}
 	r := bytes.NewReader(sk)
 	_, skey_bytes, err := ed25519.GenerateKey(r)
-	log.Printf("%x %x", sk, skey_bytes)
+	log.Debugf("%x %x", sk, skey_bytes)
 
 	t.PubKey = skey_bytes[32:]
 

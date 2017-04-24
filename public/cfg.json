@@ -1,9 +1,10 @@
-{"title":"Profile",
- "app_name":"Sour.is Profile",
-
- "wideview": false,
- "site_nav":
-	{"link":"/", "title":"Sour.is", "items":[
-      {"link":"/", "title":"Profile"}
-    ]}
+{"title":"Sour.is Profile"
+,"site_name":"Sour.is"
+,"app_name":"Sour.is Profile"
+,"wideview": false
+,"theme":"dark"
+,"site_nav":
+ {"link":"/", "title":"Sour.is", "items":[
+   {"link":"/peer",      "title":"Peers"}
+ ]}
 }

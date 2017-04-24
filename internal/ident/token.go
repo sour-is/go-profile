@@ -17,31 +17,54 @@ type User struct{
 	aspect string
 	name string
 	roles map[string]bool
+	groups map[string]bool
 	active bool
 }
+var anon User = User{
+	"anon",
+	"default",
+	"Guest User",
+	make(map[string]bool),
+	make(map[string]bool),
+	false,
+}
+
 
 func NewUser(r *http.Request) ident.Ident {
 
-	token := r.Header.Get("authorization")
-	aspect := r.URL.Query().Get("aspect")
-	if aspect == "" {
+	authorization := strings.Fields(r.Header.Get("authorization"))
+
+	var token, auth_type, aspect string
+
+	switch len(authorization){
+	case 3:
+		auth_type = authorization[0]
+		aspect = authorization[1]
+		token = authorization[2]
+
+		break;
+	case 2:
+		auth_type = authorization[0]
 		aspect = "default"
+		token = authorization[1]
+
+		break
+	default:
+		return anon
+	}
+
+	switch(auth_type) {
+	case "Bearer":
+	case "souris":
+		break;
+	default:
+		return anon
 	}
 
 	roles := make(map[string]bool)
+	groups := make(map[string]bool)
 
-	if !strings.HasPrefix(token, "souris ") {
-		return User{
-			"anon",
-			"default",
-			"Guest User",
-			roles,
-			false,
-		}
-	}
-
-	token = strings.TrimPrefix(token, "souris ")
-	log.Debugf("Auth Token: [%s]", token)
+	log.Debugf("Auth Token: [%s] Aspect: [%s]", token, aspect)
 
 	var ok bool
 	var p profile.Profile
@@ -49,14 +72,7 @@ func NewUser(r *http.Request) ident.Ident {
 
 	if ok, p, err = profile.CheckSession(aspect, token, profile.ProfileNone); err != nil || !ok {
 		log.Debug("Invalid Session")
-
-		return User{
-			"anon",
-			"default",
-			"Guest User",
-			roles,
-			false,
-		}
+		return anon
 	}
 
 	name := p.GlobalMap["display_name"]
@@ -67,6 +83,9 @@ func NewUser(r *http.Request) ident.Ident {
 	for _, n := range p.Roles {
 		roles[n] = true
 	}
+	for _, n := range p.Groups {
+		groups[n] = true
+	}
 
 	log.Debugf("%+v",p)
 
@@ -75,6 +94,7 @@ func NewUser(r *http.Request) ident.Ident {
 		p.Aspect,
 		name,
 		roles,
+		groups,
 		true,
 	}
 }
@@ -87,13 +107,22 @@ func (m User)Aspect() string {
 	return m.aspect
 }
 
-func (m User)HasRole(r string) bool {
-	_, ok := m.roles[r]
-	return ok
+func (m User)HasRole(r ...string) (ok bool) {
+	for _, n := range r {
+		if _, ok = m.roles[n]; ok {
+			break
+		}
+	}
+	return
 }
 
-func (m User)HasGroup(g string) bool {
-	return m.active
+func (m User)HasGroup(g ...string) (ok bool) {
+	for _, n := range g {
+		if _, ok = m.roles[n]; ok {
+			break
+		}
+	}
+	return
 }
 
 func (m User)LoggedIn() bool {

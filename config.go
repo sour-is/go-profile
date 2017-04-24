@@ -35,7 +35,22 @@ Config:
     - <ConfigDir>
     - /etc/opt/sour.is/profile/
     - Working Directory
+`
+var defaultConfig string = `
+database   = "local"
 
+[db.local]
+type      = "mysql"
+connect   = "profile:profile@tcp(127.0.0.1:3306)/profile"
+
+[http]
+listen   = ":8060"
+identity = "souris"
+
+[ldap]
+listen = ":3389"
+baseDN = "dc=sour,dc=is"
+domain = "sour.is"
 `
 
 var args map[string]interface{}
@@ -64,7 +79,7 @@ func initConfig() {
 	viper.AddConfigPath(".")
 
 	viper.SetConfigType("toml")
-	viper.ReadConfig(bytes.NewBuffer(defaultConfig))
+	viper.ReadConfig(bytes.NewBuffer([]byte(defaultConfig)))
 
 	err = viper.MergeInConfig()
 	if err != nil { // Handle errors reading the config file
@@ -102,8 +117,9 @@ func initConfig() {
 			panic(err)
 		}
 
-		httpsrv.Config()
-
+		if viper.IsSet("http") {
+			httpsrv.Config()
+		}
 		if viper.IsSet("ldap") {
 			ldap.Config()
 		}
@@ -118,19 +134,3 @@ func initConfig() {
 	}
 
 }
-
-var defaultConfig []byte = []byte(`
-listen     = ":8060"
-identity   = "souris"
-database   = "local"
-
-[db.local]
-type      = "mysql"
-connect   = "profile:profile@tcp(127.0.0.1:3306)/profile"
-
-[ldap]
-listen = ":3389"
-baseDN = "dc=sour,dc=is"
-domain = "sour.is"
-
-`)

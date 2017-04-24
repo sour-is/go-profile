@@ -1,8 +1,19 @@
 localhost:2016
-log   / stdout  "{combined}"
+
+log   / stderr  "{common}"
+
 proxy /app-info localhost:8060
 proxy /profile  localhost:8060
 proxy /oauth    localhost:8060
 proxy /api      localhost:8060
 proxy /idm      localhost:8060
+proxy /peer     localhost:8060
+proxy /hash/    localhost:8060
+proxy /aspect   localhost:8060
+proxy /user     localhost:8060
+proxy /admin    localhost:8060
+proxy /register localhost:8060
+
+proxy /v1/      localhost:8060
+
 root public
