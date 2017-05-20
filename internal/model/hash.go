@@ -1,17 +1,17 @@
 package model
 
 import (
-	"sour.is/x/log"
-	sq "gopkg.in/Masterminds/squirrel.v1"
 	"database/sql"
+	sq "gopkg.in/Masterminds/squirrel.v1"
+	"sour.is/x/log"
 )
 
 type HashValue struct {
 	HashId int
 	Aspect string
-	Name string
-	Key string
-	Value string
+	Name   string
+	Key    string
+	Value  string
 }
 
 func HasHash(tx *sql.Tx, aspect, name string) (bool, error) {
@@ -22,7 +22,7 @@ func HasHash(tx *sql.Tx, aspect, name string) (bool, error) {
 	err = sq.Select("count(*)").
 		From("hash").
 		Where(sq.Eq{
-			"`aspect`": aspect,
+			"`aspect`":    aspect,
 			"`hash_name`": name}).
 		RunWith(tx).QueryRow().Scan(&ok)
 
@@ -58,14 +58,14 @@ func GetHashList(tx *sql.Tx, aspect string) (lis []string, err error) {
 	return
 }
 
-func GetHashId(tx *sql.Tx, aspect, name string, lock bool) (int, error){
+func GetHashId(tx *sql.Tx, aspect, name string, lock bool) (int, error) {
 	var id int
 	var err error
 
 	s := sq.Select("`hash_id`").
 		From("`hash`").
 		Where(sq.Eq{
-			"`aspect`": aspect,
+			"`aspect`":    aspect,
 			"`hash_name`": name})
 
 	if lock {
@@ -81,7 +81,7 @@ func GetHashId(tx *sql.Tx, aspect, name string, lock bool) (int, error){
 
 	return id, err
 }
-func PutHashId(tx *sql.Tx, aspect, name string) (int, error){
+func PutHashId(tx *sql.Tx, aspect, name string) (int, error) {
 	var id int64
 	var err error
 
@@ -100,7 +100,7 @@ func PutHashId(tx *sql.Tx, aspect, name string) (int, error){
 
 	return int(id), err
 }
-func DeleteHashMapId(tx *sql.Tx, hash_id int) (err error){
+func DeleteHashMapId(tx *sql.Tx, hash_id int) (err error) {
 
 	_, err = sq.Delete("`hash_value`").
 		Where(sq.Eq{"`hash_id`": hash_id}).
@@ -210,7 +210,7 @@ func PutHashMap(tx *sql.Tx, aspect, hash string, keys map[string]string) (err er
 		}
 	}
 
-	if len(add) + len(chk) == 0 {
+	if len(add)+len(chk) == 0 {
 
 	}
 
@@ -236,14 +236,13 @@ func DeleteHashMap(tx *sql.Tx, aspect, name string) (ok bool, err error) {
 	return
 }
 
-
 func GetHashKeyList(tx *sql.Tx, hash_id int) (lis []string, err error) {
 	var rows *sql.Rows
 
 	rows, err = sq.Select("`hash_key`").
 		From("`hash_value`").
 		Where(sq.Eq{
-		"`hash_id`": hash_id}).
+			"`hash_id`": hash_id}).
 		RunWith(tx).Query()
 
 	if err != nil {
@@ -298,8 +297,8 @@ func HasHashValueId(tx *sql.Tx, hash_id int, key string, lock bool) (bool, error
 	s := sq.Select("count(*)").
 		From("`hash_value`").
 		Where(sq.Eq{
-		"`hash_id`": hash_id,
-		"`hash_key`": key})
+			"`hash_id`":  hash_id,
+			"`hash_key`": key})
 
 	if lock {
 		s.Suffix("FOR UPDATE")
@@ -318,8 +317,8 @@ func GetHashValueId(tx *sql.Tx, hash_id int, key string) (value string, err erro
 	s := sq.Select("`hash_value`").
 		From("`hash_value`").
 		Where(sq.Eq{
-		"`hash_id`": hash_id,
-		"`hash_key`": key})
+			"`hash_id`":  hash_id,
+			"`hash_key`": key})
 	s.RunWith(tx).QueryRow().Scan(&value)
 	if err != nil {
 		return
@@ -342,7 +341,7 @@ func DeleteHashValueId(tx *sql.Tx, hash_id int, key string) (err error) {
 	log.Debugf("DEL: %d : %s ", hash_id, key)
 	_, err = sq.Delete("hash_value").
 		Where(sq.Eq{
-			"`hash_id`": hash_id,
+			"`hash_id`":  hash_id,
 			"`hash_key`": key}).
 		RunWith(tx).Exec()
 

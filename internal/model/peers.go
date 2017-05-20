@@ -1,12 +1,12 @@
 package model
 
 import (
-	"sour.is/x/log"
 	sq "gopkg.in/Masterminds/squirrel.v1"
+	"sour.is/x/log"
 
 	"database/sql"
-	"sour.is/x/uuid"
 	"fmt"
+	"sour.is/x/uuid"
 )
 
 type PeerNode struct {
@@ -24,7 +24,7 @@ type PeerNode struct {
 func GetPeerList(tx *sql.Tx, nick string) (lis []PeerNode, err error) {
 	var rows *sql.Rows
 
-	s := sq.Select("`peer_id`","`peer_name`").
+	s := sq.Select("`peer_id`", "`peer_name`").
 		From("`peers`.`peers`").
 		Where(sq.Eq{"lower(`peer_nick`)": nick})
 	rows, err = s.RunWith(tx).Query()
@@ -48,9 +48,9 @@ func GetPeerList(tx *sql.Tx, nick string) (lis []PeerNode, err error) {
 
 	return
 }
-func HasPeerNode(tx *sql.Tx, id string, lock bool) (_ bool, err error){
+func HasPeerNode(tx *sql.Tx, id string, lock bool) (_ bool, err error) {
 
-	s := sq.Select("`peer_id`",).
+	s := sq.Select("`peer_id`").
 		From("`peers`.`peers`").
 		Where(sq.Eq{"`peer_id`": id})
 
@@ -71,9 +71,9 @@ func HasPeerNode(tx *sql.Tx, id string, lock bool) (_ bool, err error){
 
 	return id == ck, nil
 }
-func GetPeerNode(tx *sql.Tx, id string, lock bool) (p PeerNode, ok bool, err error){
+func GetPeerNode(tx *sql.Tx, id string, lock bool) (p PeerNode, ok bool, err error) {
 
-	s := sq.Select("`peer_id`","`peer_name`","`peer_note`","`peer_family`","`peer_country`","`peer_nick`","`peer_type`","`peer_active`","`peer_created`").
+	s := sq.Select("`peer_id`", "`peer_name`", "`peer_note`", "`peer_family`", "`peer_country`", "`peer_nick`", "`peer_type`", "`peer_active`", "`peer_created`").
 		From("`peers`.`peers`").
 		Where(sq.Eq{"`peer_id`": id})
 	if lock {
@@ -93,12 +93,12 @@ func GetPeerNode(tx *sql.Tx, id string, lock bool) (p PeerNode, ok bool, err err
 	ok = true
 	return p, ok, err
 }
-func (p PeerNode) Insert(tx *sql.Tx) (sp PeerNode, err error){
+func (p PeerNode) Insert(tx *sql.Tx) (sp PeerNode, err error) {
 	p.Id = uuid.V4()
 
 	var res sql.Result
 	s := sq.Insert("`peers`.`peers`").
-		Columns("`peer_id`","`peer_name`","`peer_note`","`peer_family`","`peer_country`","`peer_nick`","`peer_type`").
+		Columns("`peer_id`", "`peer_name`", "`peer_note`", "`peer_family`", "`peer_country`", "`peer_nick`", "`peer_type`").
 		Values(p.Id, p.Name, p.Note, p.Family, p.Country, p.Nick, p.Type)
 	res, err = s.RunWith(tx).Exec()
 
@@ -122,11 +122,11 @@ func (p PeerNode) Insert(tx *sql.Tx) (sp PeerNode, err error){
 func (p PeerNode) Update(tx *sql.Tx) (sp PeerNode, err error) {
 	var res sql.Result
 	res, err = sq.Update("`peers`.`peers`").
-		Set("`peer_name`",    p.Name).
-		Set("`peer_note`",    p.Note).
-		Set("`peer_family`",  p.Family).
+		Set("`peer_name`", p.Name).
+		Set("`peer_note`", p.Note).
+		Set("`peer_family`", p.Family).
 		Set("`peer_country`", p.Country).
-		Set("`peer_type`",    p.Type).
+		Set("`peer_type`", p.Type).
 		Where(sq.Eq{"`peer_id`": p.Id, "lower(`peer_nick`)": p.Nick}).
 		RunWith(tx).Exec()
 	if err != nil {
@@ -147,7 +147,7 @@ func (p PeerNode) Update(tx *sql.Tx) (sp PeerNode, err error) {
 	return
 }
 
-func DeletePeerNode(tx *sql.Tx, id string) (err error){
+func DeletePeerNode(tx *sql.Tx, id string) (err error) {
 
 	s := sq.Delete("`peers`.`peers`").
 		Where(sq.Eq{"`peer_id`": id})

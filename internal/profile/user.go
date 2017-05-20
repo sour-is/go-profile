@@ -1,26 +1,26 @@
 package profile
 
 import (
-	"database/sql"
-	"sour.is/x/log"
-	"sour.is/x/dbm"
-	"sour.is/x/httpsrv"
-	"sour.is/x/profile/internal/model"
 	"bytes"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"sour.is/x/dbm"
+	"sour.is/x/httpsrv"
+	"sour.is/x/log"
+	"sour.is/x/profile/internal/model"
 
 	"crypto/sha256"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/scrypt"
 
-	"crypto/subtle"
-	"time"
-	"strconv"
 	"crypto/rand"
-	"strings"
-	"errors"
 	"crypto/sha1"
+	"crypto/subtle"
+	"errors"
+	"strconv"
+	"strings"
+	"time"
 )
 
 type Profile struct {
@@ -43,9 +43,10 @@ const (
 	ProfileAspect
 	ProfileLocal
 	ProfileOther = ProfileGlobal | ProfileAspect
-	ProfileAll = ProfileGlobal | ProfileAspect | ProfileLocal
-	ProfileNone = 0
+	ProfileAll   = ProfileGlobal | ProfileAspect | ProfileLocal
+	ProfileNone  = 0
 )
+
 func getUserProfileTx(tx *sql.Tx, aspect, user string, flag int) (p Profile, err error) {
 	user = strings.ToLower(user)
 	atUser := "@" + user
@@ -66,7 +67,7 @@ func getUserProfileTx(tx *sql.Tx, aspect, user string, flag int) (p Profile, err
 		return
 	}
 
-	if flag & ProfileGlobal != 0 {
+	if flag&ProfileGlobal != 0 {
 		if global, _, err = model.GetHashMap(tx, "global", "default"); err != nil {
 			return
 		}
@@ -79,7 +80,7 @@ func getUserProfileTx(tx *sql.Tx, aspect, user string, flag int) (p Profile, err
 		//log.Debugf("Global: %s", global)
 	}
 
-	if flag & ProfileAspect != 0{
+	if flag&ProfileAspect != 0 {
 		if app, _, err = model.GetHashMap(tx, aspect, "default"); err != nil {
 			return
 		}
@@ -92,7 +93,7 @@ func getUserProfileTx(tx *sql.Tx, aspect, user string, flag int) (p Profile, err
 		//log.Debugf("Aspect: %s", app)
 	}
 
-	if flag & ProfileLocal != 0{
+	if flag&ProfileLocal != 0 {
 		if local, _, err = model.GetHashMap(tx, atUser, "default"); err != nil {
 			return
 		}
@@ -489,11 +490,12 @@ func enc(b []byte) string {
 }
 
 type Session struct {
-	Ident   string  `json:"ident"`
-	Aspect  string  `json:"aspect"`
-	Created int64   `json:"created"`
-	Expires int64   `json:"expires"`
+	Ident   string `json:"ident"`
+	Aspect  string `json:"aspect"`
+	Created int64  `json:"created"`
+	Expires int64  `json:"expires"`
 }
+
 func MakeSession(aspect, user string, flag int) (token string, expires time.Time, p Profile, err error) {
 	rnd := make([]byte, 16)
 	rand.Read(rnd)
@@ -508,7 +510,7 @@ func MakeSession(aspect, user string, flag int) (token string, expires time.Time
 	session["expires"] = expires.UTC().Format("2006-01-02T15:04:05Z")
 
 	profile_aspect := "default"
-	if (aspect != "*") {
+	if aspect != "*" {
 		profile_aspect = aspect
 	}
 
@@ -615,7 +617,7 @@ func CronSessions() {
 	<-httpsrv.SignalStartup
 
 	log.Debug("[CRON Session] Initialized.")
-	Exit:
+Exit:
 	for {
 		select {
 		case <-httpsrv.SignalShutdown:

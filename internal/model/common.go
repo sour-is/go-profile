@@ -7,7 +7,7 @@ func arrayIntersect(left, right []string) (in []string) {
 		m[l] = true
 	}
 
-	for _ , r := range right {
+	for _, r := range right {
 		if _, ok := m[r]; ok {
 			in = append(in, r)
 		}
@@ -22,7 +22,7 @@ func arrayDisjunct(left, right []string) (out []string) {
 		m[l] = true
 	}
 
-	for _ , r := range right {
+	for _, r := range right {
 		if _, ok := m[r]; !ok {
 			out = append(out, r)
 		}
@@ -37,7 +37,6 @@ func arrayKeys(m map[string]string) (out []string) {
 	return
 }
 
-
 func arrayDisjunctInt(left, right []int) (out []int) {
 	m := make(map[int]bool)
 
@@ -45,7 +44,7 @@ func arrayDisjunctInt(left, right []int) (out []int) {
 		m[l] = true
 	}
 
-	for _ , r := range right {
+	for _, r := range right {
 		if _, ok := m[r]; !ok {
 			out = append(out, r)
 		}

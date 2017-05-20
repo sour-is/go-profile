@@ -12,6 +12,11 @@ all: $(BINARY)
 clean:
 	rm -f $(BINARY) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 
+fmt:   $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
+	find . -type f -name "*.go" -printf "%h\n"|sort -u|xargs go fmt
+	find . -type f -name "*.go" -printf "%h\n"|sort -u|xargs go vet
+
+
 $(BINARY): $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	go build
 
@@ -24,4 +29,4 @@ $(SCHEMA_ASSET): $(SCHEMA_FILES)
 deploy: clean $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	cd debian && make && make deploy
 
-.PHONEY: clean deploy
+.PHONEY: clean deploy fmt

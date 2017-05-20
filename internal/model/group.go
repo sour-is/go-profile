@@ -1,23 +1,23 @@
 package model
 
 import (
-	"sour.is/x/log"
-	sq "gopkg.in/Masterminds/squirrel.v1"
 	"database/sql"
+	sq "gopkg.in/Masterminds/squirrel.v1"
+	"sour.is/x/log"
 )
 
 type GroupUser struct {
 	GroupId int
-	Aspect string
-	Group string
-	User string
+	Aspect  string
+	Group   string
+	User    string
 }
 type GroupRole struct {
-	GroupId int
-	Aspect string
-	Role string
+	GroupId      int
+	Aspect       string
+	Role         string
 	AssignAspect string
-	AssignGroup string
+	AssignGroup  string
 }
 
 func GetAspectList(tx *sql.Tx, includeUsers bool) (lis []string, err error) {
@@ -27,7 +27,7 @@ func GetAspectList(tx *sql.Tx, includeUsers bool) (lis []string, err error) {
 		From("`aspects`")
 
 	if !includeUsers {
-		s =	s.Where("`aspect` NOT LIKE '@%'")
+		s = s.Where("`aspect` NOT LIKE '@%'")
 	}
 
 	rows, err = s.RunWith(tx).Query()
@@ -80,15 +80,15 @@ func GetGroupList(tx *sql.Tx, aspect string) (lis []string, err error) {
 	return
 }
 
-func HasGroup(tx *sql.Tx, aspect, group string) (bool, error){
+func HasGroup(tx *sql.Tx, aspect, group string) (bool, error) {
 	var id int
 	var err error
 
 	err = sq.Select("count(*)").
 		From("`group`").
 		Where(sq.Eq{
-		"`aspect`": aspect,
-		"`group`": group}).
+			"`aspect`": aspect,
+			"`group`":  group}).
 		RunWith(tx).QueryRow().Scan(&id)
 
 	if err != nil {
@@ -99,7 +99,7 @@ func HasGroup(tx *sql.Tx, aspect, group string) (bool, error){
 	return id > 0, err
 }
 
-func GetGroupId(tx *sql.Tx, aspect, group string, lock bool) (int, error){
+func GetGroupId(tx *sql.Tx, aspect, group string, lock bool) (int, error) {
 	var id int
 	var err error
 
@@ -107,7 +107,7 @@ func GetGroupId(tx *sql.Tx, aspect, group string, lock bool) (int, error){
 		From("`group`").
 		Where(sq.Eq{
 			"`aspect`": aspect,
-			"`group`": group})
+			"`group`":  group})
 
 	if lock {
 		s.Suffix("LOCK IN SHARE MODE")
@@ -123,7 +123,7 @@ func GetGroupId(tx *sql.Tx, aspect, group string, lock bool) (int, error){
 	return id, err
 }
 
-func PutGroupId(tx *sql.Tx, aspect, group string) (int, error){
+func PutGroupId(tx *sql.Tx, aspect, group string) (int, error) {
 	var id int64
 	var err error
 
@@ -151,8 +151,8 @@ func HasGroupUser(tx *sql.Tx, group_id int, user string, lock bool) (bool, error
 	s := sq.Select("count(*)").
 		From("`group_user`").
 		Where(sq.Eq{
-		"`group_id`": group_id,
-		"`user`": user})
+			"`group_id`": group_id,
+			"`user`":     user})
 
 	if lock {
 		s.Suffix("FOR UPDATE")
@@ -218,7 +218,7 @@ func GetGroupUserList(tx *sql.Tx, aspect, group string) (users []string, err err
 func GetGroupRoles(tx *sql.Tx, group_id int) (roles []GroupRole, err error) {
 	var rows *sql.Rows
 
-	rows, err = sq.Select("`group_id`", "`aspect`",  "`role`", "`assign_aspect`", "`assign_group`").
+	rows, err = sq.Select("`group_id`", "`aspect`", "`role`", "`assign_aspect`", "`assign_group`").
 		From("`group_roles`").
 		Where(sq.Eq{
 			"`group_id`": group_id}).
@@ -256,11 +256,12 @@ func GetGroupRoleList(tx *sql.Tx, aspect, group string) (roles []string, err err
 	}
 
 	for _, u := range lis {
-		roles = append(roles, u.Aspect + "/" + u.Role)
+		roles = append(roles, u.Aspect+"/"+u.Role)
 	}
 
 	return
 }
+
 /*
 func PutGroupUsers(tx *sql.Tx, aspect, group string, newUsers []string) (err error) {
 	var oldUsers []string
@@ -301,7 +302,6 @@ func PutGroupUsers(tx *sql.Tx, aspect, group string, newUsers []string) (err err
 	return
 }
 */
-
 
 func PutGroupUser(tx *sql.Tx, aspect, group, user string) (ok bool, err error) {
 
@@ -363,12 +363,11 @@ func DeleteGroupUser(tx *sql.Tx, aspect, group, user string) (err error) {
 	return
 }
 
-
 func PutGroupUserId(tx *sql.Tx, group_id int, user string) (err error) {
 
 	log.Debugf("ADD: %d : %s", group_id, user)
 	_, err = sq.Insert("`group_user`").
-		Columns("`group_id`","`user`").
+		Columns("`group_id`", "`user`").
 		Values(group_id, user).
 		RunWith(tx).Exec()
 
@@ -381,7 +380,7 @@ func DeleteGroupUserId(tx *sql.Tx, group_id int, user string) (err error) {
 	_, err = sq.Delete("`group_user`").
 		Where(sq.Eq{
 			"`group_id`": group_id,
-			"`user`": user}).
+			"`user`":     user}).
 		RunWith(tx).Exec()
 
 	return

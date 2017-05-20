@@ -1,17 +1,17 @@
 package model
 
 import (
-	"sour.is/x/log"
-	sq "gopkg.in/Masterminds/squirrel.v1"
 	"database/sql"
+	sq "gopkg.in/Masterminds/squirrel.v1"
+	"sour.is/x/log"
 )
 
 type RoleGroup struct {
-	GroupId int
-	Aspect string
-	Role string
+	GroupId      int
+	Aspect       string
+	Role         string
 	AssignAspect string
-	AssignGroup string
+	AssignGroup  string
 }
 
 func HasRoleGroup(tx *sql.Tx, aspect, role string, group_id int, lock bool) (bool, error) {
@@ -22,8 +22,8 @@ func HasRoleGroup(tx *sql.Tx, aspect, role string, group_id int, lock bool) (boo
 	s := sq.Select("count(*)").
 		From("`group_role`").
 		Where(sq.Eq{
-			"`aspect`": aspect,
-			"`role`": role,
+			"`aspect`":   aspect,
+			"`role`":     role,
 			"`group_id`": group_id,
 		})
 
@@ -86,7 +86,7 @@ func GetRoleGroupList(tx *sql.Tx, aspect, role string) (lis []string, err error)
 	}
 
 	for _, r := range roles {
-		lis = append(lis, r.AssignAspect + "/" + r.AssignGroup)
+		lis = append(lis, r.AssignAspect+"/"+r.AssignGroup)
 	}
 
 	return
@@ -150,13 +150,12 @@ func DeleteRoleGroup(tx *sql.Tx, aspect, role, assign, group string) (err error)
 	return
 }
 
-
 func PutRoleGroupId(tx *sql.Tx, aspect, role string, group_id int) error {
 
 	log.Debugf("ADD: %s / %s : %d", aspect, role, group_id)
 
 	_, err := sq.Insert("`group_role`").
-		Columns("`aspect`","`role`","`group_id`").
+		Columns("`aspect`", "`role`", "`group_id`").
 		Values(aspect, role, group_id).
 		RunWith(tx).Exec()
 
@@ -169,8 +168,8 @@ func DeleteRoleGroupId(tx *sql.Tx, aspect, role string, group_id int) error {
 
 	_, err := sq.Delete("`group_role`").
 		Where(sq.Eq{
-			"`aspect`": aspect,
-			"`role`": role,
+			"`aspect`":   aspect,
+			"`role`":     role,
 			"`group_id`": group_id,
 		}).
 		RunWith(tx).Exec()

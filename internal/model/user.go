@@ -1,16 +1,16 @@
 package model
 
 import (
-	"sour.is/x/log"
-	sq "gopkg.in/Masterminds/squirrel.v1"
 	"database/sql"
+	sq "gopkg.in/Masterminds/squirrel.v1"
 	"sour.is/x/dbm"
+	"sour.is/x/log"
 )
 
 type UserRole struct {
-	User string
+	User   string
 	Aspect string
-	Role string
+	Role   string
 }
 
 func HasUserRoleTx(tx *sql.Tx, aspect, user string, role ...string) (bool, error) {
@@ -21,8 +21,8 @@ func HasUserRoleTx(tx *sql.Tx, aspect, user string, role ...string) (bool, error
 		From("user_roles").
 		Where(sq.Eq{
 			"`aspect`": []string{"*", aspect},
-			"`user`": user,
-			"`role`": role}).
+			"`user`":   user,
+			"`role`":   role}).
 		RunWith(tx).QueryRow().Scan(&ok)
 
 	if err != nil {
@@ -48,8 +48,7 @@ func HasUserRole(aspect, ident string, role ...string) (ok bool, err error) {
 	return
 }
 
-
-func GetUserRoles(tx *sql.Tx, aspect, user string) (lis []UserRole, err error){
+func GetUserRoles(tx *sql.Tx, aspect, user string) (lis []UserRole, err error) {
 
 	var rows *sql.Rows
 	rows, err = sq.Select("DISTINCT `role`").
@@ -90,12 +89,10 @@ func GetUserRoleList(tx *sql.Tx, aspect, user string) (lis []string, err error) 
 	return
 }
 
-
-
 type UserGroup struct {
-	User string
+	User   string
 	Aspect string
-	Group string
+	Group  string
 }
 
 func HasUserGroup(tx *sql.Tx, aspect, user string, role ...string) (bool, error) {
@@ -106,9 +103,9 @@ func HasUserGroup(tx *sql.Tx, aspect, user string, role ...string) (bool, error)
 	err = sq.Select("count(*)").
 		From("group_users").
 		Where(sq.Eq{
-		"`aspect`": []string{"*", aspect},
-		"`user`": user,
-		"`group`": role}).
+			"`aspect`": []string{"*", aspect},
+			"`user`":   user,
+			"`group`":  role}).
 		RunWith(tx).QueryRow().Scan(&ok)
 
 	if err != nil {
@@ -121,7 +118,7 @@ func HasUserGroup(tx *sql.Tx, aspect, user string, role ...string) (bool, error)
 	return ok > 0, err
 }
 
-func GetUserGroups(tx *sql.Tx, aspect, user string) (lis []UserGroup, err error){
+func GetUserGroups(tx *sql.Tx, aspect, user string) (lis []UserGroup, err error) {
 
 	var rows *sql.Rows
 	rows, err = sq.Select("DISTINCT `group`").
@@ -162,5 +159,3 @@ func GetUserGroupList(tx *sql.Tx, aspect, user string) (lis []string, err error)
 
 	return
 }
-
-

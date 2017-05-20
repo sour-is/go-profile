@@ -1,14 +1,14 @@
 package ldap
 
 import (
-	"strings"
 	"github.com/nmcclain/ldap"
-	"net"
-	"sour.is/x/profile/internal/profile"
-	"sour.is/x/log"
-	"os"
-	"time"
 	"github.com/spf13/viper"
+	"net"
+	"os"
+	"sour.is/x/log"
+	"sour.is/x/profile/internal/profile"
+	"strings"
+	"time"
 )
 
 var listen string
@@ -16,9 +16,9 @@ var domain string
 var baseDN string
 var server *ldap.Server
 
-var accessLog = log.New(os.Stdout, "", log.Ldate | log.Ltime | log.LUTC)
+var accessLog = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.LUTC)
 
-type ldapHandler struct {}
+type ldapHandler struct{}
 
 func Run() {
 	server = ldap.NewServer()
@@ -37,7 +37,7 @@ func Run() {
 }
 
 func Shutdown() {
-//	server.Close()
+	//	server.Close()
 }
 
 func Config() {
@@ -74,7 +74,7 @@ func getUsername(dn string) (user, aspect string) {
 	user = "anon"
 	aspect = "default"
 
-	if strings.Contains(dn, "@") && strings.HasSuffix(dn, domain){
+	if strings.Contains(dn, "@") && strings.HasSuffix(dn, domain) {
 		dn = strings.TrimSuffix(dn, domain)
 
 		at := strings.SplitN(dn, "@", 2)
@@ -88,7 +88,7 @@ func getUsername(dn string) (user, aspect string) {
 		return user, aspect
 	}
 
-	if strings.HasSuffix(strings.ToLower(dn), "," + baseDN) {
+	if strings.HasSuffix(strings.ToLower(dn), ","+baseDN) {
 		c := strings.Split(dn, ",")
 
 		for _, v := range c {
@@ -150,21 +150,20 @@ func (h ldapHandler) Search(boundDN string, searchReq ldap.SearchRequest, conn n
 	entries := []*ldap.Entry{
 		{"cn=" + user + "," + searchReq.BaseDN,
 			[]*ldap.EntryAttribute{
-				{"cn",            []string{user}},
-				{"dispayName",    []string{p.GlobalMap["displayName"]}},
-				{"givenName",     []string{p.GlobalMap["givenName"]}},
-				{"sn",            []string{p.GlobalMap["sn"]}},
-				{"mail",          []string{p.GlobalMap["mail"]}},
-				{"initials",      []string{p.GlobalMap["initials"]}},
-				{"url",           []string{p.GlobalMap["url"]}},
+				{"cn", []string{user}},
+				{"dispayName", []string{p.GlobalMap["displayName"]}},
+				{"givenName", []string{p.GlobalMap["givenName"]}},
+				{"sn", []string{p.GlobalMap["sn"]}},
+				{"mail", []string{p.GlobalMap["mail"]}},
+				{"initials", []string{p.GlobalMap["initials"]}},
+				{"url", []string{p.GlobalMap["url"]}},
 				{"accountStatus", []string{active}},
-				{"uid",           []string{user}},
-				{"memberOf",      []string{admin}},
-				{"aspect",        []string{aspect}},
-				{"objectClass",   []string{"person"}},
+				{"uid", []string{user}},
+				{"memberOf", []string{admin}},
+				{"aspect", []string{aspect}},
+				{"objectClass", []string{"person"}},
 			}},
 	}
-
 
 	accessLog.Printf(
 		"%s\t%s/%s\t% 12s\t%d\t%s\t%s %s",
@@ -179,8 +178,8 @@ func (h ldapHandler) Search(boundDN string, searchReq ldap.SearchRequest, conn n
 	)
 
 	return ldap.ServerSearchResult{
-		Entries: entries,
-		Referrals: []string{},
-		Controls: []ldap.Control{},
+		Entries:    entries,
+		Referrals:  []string{},
+		Controls:   []ldap.Control{},
 		ResultCode: ldap.LDAPResultSuccess}, nil
 }
