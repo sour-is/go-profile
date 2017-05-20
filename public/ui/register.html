@@ -1,0 +1,15 @@
+<form name="register" ng-submit="$register(ident, password, captcha, code)">
+    <label for="ident">Username</label>
+    <input id="ident" type="text" class="form-control" ng-model="ident">
+    <label for="password">Password</label>
+    <input id="password" type="text" class="form-control" ng-model="password">
+    <label for="verify">Verify</label>
+    <input id="verify" type="text" class="form-control" ng-model="verify">
+
+    <img ng-src="/profile/captcha/{{captcha}}.png" />
+
+    <label for="code">Captcha Code</label>
+    <input id="code" type="text" class="form-control" ng-model="code">
+
+    <button class="btn btn-default">Register</button>
+</form>

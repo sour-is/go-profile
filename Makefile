@@ -21,7 +21,7 @@ $(ROUTE_ASSET): $(ROUTE_FILES)
 $(SCHEMA_ASSET): $(SCHEMA_FILES)
 	export PATH=$$GOPATH/bin:$$PATH; go-bindata -pkg main schema/
 
-deploy: clean all
+deploy: clean $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	cd debian && make && make deploy
 
 .PHONEY: clean deploy

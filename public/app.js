@@ -48,12 +48,12 @@ var PROFILE = {
         if (args.aspect !== undefined) self.aspect = args.aspect;
 
          if (args.ident !== undefined)
-            req('/profile/user.profile(:ident)',self.aspect)
+            req('/v1/profile/user.profile(:ident)',self.aspect)
                 .get({ident: self.ident})
                 .success(loadProfile);
 
         else if (args.aspect !== undefined)
-            req('/profile/user.profile',self.aspect)
+            req('/v1/profile/user.profile',self.aspect)
                 .get()
                 .success(loadProfile);
 
@@ -70,7 +70,7 @@ var PROFILE = {
                 local: parseConfig(local_txt)
             };
 
-            req('/profile/user.profile')
+            req('/v1/profile/user.profile')
                 .put({aspect: aspect}, o)
                 .success(loadProfile);
         };
@@ -87,7 +87,7 @@ var ASPECT = {
         self.active_aspect = self.aspect;
 
         var load = function(aspect) {
-            req("/profile/aspect.list", aspect).get().success(function (d) {
+            req("/v1/profile/aspect.list", aspect).get().success(function (d) {
                 if (self.aspect !== undefined) {
                     var ok = false;
                     for (var i = 0; i < d.length; i++) if (d[i] === self.aspect) ok = true;
@@ -96,12 +96,12 @@ var ASPECT = {
                 self.aspectList = d;
             });
             if (aspect === undefined) return;
-            req("/profile/aspect.group(:aspect)", aspect).
+            req("/v1/profile/aspect.group(:aspect)", aspect).
                 get({aspect: aspect}).
                 success(function (d) { self.groupList = d;}).
                 error(function(){ self.groupList = []; });
 
-            req('/profile/hash.list(:aspect)', aspect).
+            req('/v1/profile/hash.list(:aspect)', aspect).
                 get({aspect: aspect}).
                 success(function(d){ self.hashList = d; }).
                 error(function(){ self.hashList = []; });
@@ -130,7 +130,7 @@ var GROUP = {
         self.active_group = self.group;
 
         var load = function(aspect) {
-            req("/profile/aspect.list", aspect).get().success(function (d) {
+            req("/v1/profile/aspect.list", aspect).get().success(function (d) {
                 if (self.aspect !== undefined) {
                     var ok = false;
                     for (var i = 0; i < d.length; i++) if (d[i] === self.aspect) ok = true;
@@ -139,7 +139,7 @@ var GROUP = {
                 self.aspectList = d;
             });
 
-            req("/profile/aspect.group(:aspect)", aspect).
+            req("/v1/profile/aspect.group(:aspect)", aspect).
                get({aspect: aspect}).
                 success(function (d) {
                     if (self.group !== undefined) {
@@ -159,24 +159,24 @@ var GROUP = {
                     self.groupList = d;
                 });
 
-            req('/profile/hash.list(:aspect)', aspect).
+            req('/v1/profile/hash.list(:aspect)', aspect).
                 get({aspect: aspect}).
                 success(function(d){ self.hashList = d; }).
                 error(function(){ self.hashList = []; });
         }; load(self.aspect);
 
         var loadUsers = function(aspect, group) {
-            req('/profile/group.users(:aspect,:group)', aspect).
+            req('/v1/profile/group.users(:aspect,:group)', aspect).
                 get({aspect: aspect, group: group}).
                     success(function(d){ self.users = d; self.user_txt = d.join("\n"); }).
-                    error(function(e){ self.users = []; self.user_txt = ""; });
+                    error(function(){ self.users = []; self.user_txt = ""; });
         }; loadUsers(args.aspect, args.group);
 
         var loadRoles = function(aspect, group) {
-            req('/profile/group.roles(:aspect,:group)', aspect).
+            req('/v1/profile/group.roles(:aspect,:group)', aspect).
                 get({aspect: aspect, group: group}).
                 success(function(d){ self.roles = d; self.role_txt = d.join("\n"); }).
-                error(function(e){ self.roles = []});
+                error(function(){ self.roles = []});
         }; loadRoles(args.aspect, args.group);
 
         self.addHash = function(a, h) {
@@ -193,7 +193,7 @@ var GROUP = {
             for (var i=0; i<v.length; i++) if (v[i] !== "") if (u.indexOf(v[i]) === -1) {
                 console.log("rem: " + v[i]);
 
-                req('/profile/group.user(:aspect,:group,:user)', aspect).delete({
+                req('/v1/profile/group.user(:aspect,:group,:user)', aspect).delete({
                     aspect: aspect,
                     group: group,
                     user: v[i]
@@ -203,7 +203,7 @@ var GROUP = {
             for (var i=0; i<u.length; i++) if (u[i] !== "") if (v.indexOf(u[i]) === -1) {
                 console.log("add: " + u[i]);
 
-                req('/profile/group.user(:aspect,:group,:user)', aspect).put({
+                req('/v1/profile/group.user(:aspect,:group,:user)', aspect).put({
                     aspect: aspect,
                     group: group,
                     user: u[i]
@@ -223,7 +223,7 @@ var GROUP = {
 
                 s = u[i].split("\/");
                 if (s.length !== 2) continue;
-                req('/profile/group.role(:aspect,:group,:assign,:role)', s[0]).put({
+                req('/v1/profile/group.role(:aspect,:group,:assign,:role)', s[0]).put({
                     aspect: s[0],
                     group: group,
                     assign: s[0],
@@ -236,7 +236,7 @@ var GROUP = {
 
                 s = v[i].split("\/");
                 if (s.length !== 2) continue;
-                req('/profile/group.role(:aspect,:group,:assign,:role)', s[0]).delete({
+                req('/v1/profile/group.role(:aspect,:group,:assign,:role)', s[0]).delete({
                     aspect: s[0],
                     group: group,
                     assign: s[0],
@@ -261,7 +261,7 @@ var HASH = {
         self.active_hash = self.name;
 
         var load = function(aspect) {
-            req("/profile/aspect.list", aspect).get().success(function (d) {
+            req("/v1/profile/aspect.list", aspect).get().success(function (d) {
                 if (self.aspect !== undefined) {
                     var ok = false;
                     for (var i = 0; i < d.length; i++) if (d[i] === self.aspect) ok = true;
@@ -270,7 +270,7 @@ var HASH = {
                 self.aspectList = d;
             });
 
-            req("/profile/aspect.group(:aspect)", aspect).
+            req("/v1/profile/aspect.group(:aspect)", aspect).
                 get({aspect: aspect}).
                 success(function (d) {
                     if (self.group !== undefined) {
@@ -290,7 +290,7 @@ var HASH = {
                     self.groupList = d;
                     });
 
-            req('/profile/hash.list(:aspect)', aspect).
+            req('/v1/profile/hash.list(:aspect)', aspect).
                 get({aspect: aspect}).
                 success(function(d){
                     if (self.name !== undefined) {
@@ -312,12 +312,12 @@ var HASH = {
         }; load(self.aspect);
 
         var loadHash = function(aspect, name) {
-            req('/profile/hash.map(:aspect,:name)', aspect).
+            req('/v1/profile/hash.map(:aspect,:name)', aspect).
                 get({aspect: aspect, name: name}).
                 success(function(d){
                     self.hash = d;
                     self.hash_txt = encodeConfig(d);
-                }).error(function(e){ self.hash = {}; self.hash_txt = ""; });
+                }).error(function(){ self.hash = {}; self.hash_txt = ""; });
         }; loadHash(args.aspect, args.name);
 
         self.addHash = function(a, h) {
@@ -330,13 +330,13 @@ var HASH = {
         self.$save = function(aspect, name, values) {
             var v = parseConfig(values);
 
-            req('/profile/hash.map(:aspect,:name)', aspect).
+            req('/v1/profile/hash.map(:aspect,:name)', aspect).
                 put({aspect: aspect, name: name}, v).
                     success(function(){ loadHash(aspect, name); }).
                     error(function(e){ self.error = e;});
         };
         self.$delete = function(aspect, name) {
-            req('/profile/hash.map(:aspect,:name)', aspect).
+            req('/v1/profile/hash.map(:aspect,:name)', aspect).
                 delete({aspect: aspect, name: name}).
                 success(function(){ loc.path('/admin/' + aspect); }).
                 error(function(e){ self.error = e;});
@@ -367,12 +367,12 @@ var OAUTH = {
         if (OAUTH_ARGS.client_id === undefined)
             location.url("/");
 
-        req('/profile/oauth.authorize','oauth').
+        req('/v1/profile/oauth.authorize','oauth').
             get({client_id: OAUTH_ARGS.client_id}).
             success(function(d){ self.oauth = d; });
 
         self.$authorize = function() {
-            req('/profile/oauth.authorize','oauth').
+            req('/v1/profile/oauth.authorize','oauth').
                 post({}, OAUTH_ARGS).
                 success(function(d){
                     window.location = OAUTH_ARGS.redirect_uri + "?code=" + d.code + "&state=" + encodeURI(OAUTH_ARGS.state);
@@ -380,7 +380,6 @@ var OAUTH = {
         };
     }]
 };
-
 var PEERS = {
     templateUrl: '/ui/peers.html',
     controller: ['$scope', '$routeParams', '$sourisRemoteService', '$location', function(self, args, req, loc) {
@@ -416,7 +415,7 @@ var PEERS = {
 
             setNode(d);
         };
-        var setDeleted = function(d) {
+        var setDeleted = function() {
             loc.path("/peer");
         };
 
@@ -431,7 +430,7 @@ var PEERS = {
             });
         };
         self.getNode = function(id) {
-            req('/v1/peer.node(:id)', "peers")
+            req('/v1/peers/peer.node(:id)', "peers")
                 .get({id: id})
                 .success(setNode)
                 .error(setError);
@@ -441,12 +440,12 @@ var PEERS = {
             node.peer_type = node.peer_type.join(",");
 
             if (node.peer_id === undefined)
-                req('/v1/peer.nodes', "peers")
+                req('/v1/peers/peer.nodes', "peers")
                     .post({}, node)
                     .success(setSaved)
                     .error(setError);
             else
-                req('/v1/peer.node(:id)', "peers")
+                req('/v1/peers/peer.node(:id)', "peers")
                     .put({id: node.peer_id}, node)
                     .success(setSaved)
                     .error(setError);
@@ -455,13 +454,13 @@ var PEERS = {
             if (node.peer_id === undefined)
                 self.newNode();
             else
-                req('/v1/peer.node(:id)', "peers")
+                req('/v1/peers/peer.node(:id)', "peers")
                     .delete({id: node.peer_id}, {})
                     .success(setDeleted)
                     .error(setError);
         };
 
-        req('/v1/peer.nodes', 'peers').get()
+        req('/v1/peers/peer.nodes', 'peers').get()
             .success(setNodes)
             .error(setError);
 

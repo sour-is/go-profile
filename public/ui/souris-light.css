@@ -1,0 +1,4 @@
+.list-group-item.active  a { color: white; }
+.cover { margin-top:25%; padding: 0 20px; text-align: center }
+.cover img { width: 20% }
+body { background-color: #ccc; }

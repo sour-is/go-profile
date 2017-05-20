@@ -1,0 +1,72 @@
+<div class="row" ng-init="editProfile = false">
+    <div class="col-md-4">
+        <div style="text-align:center;padding-bottom:1em;">
+            <img class="img-rounded" height="200" width="200"
+                 src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                 ng-src="https://www.gravatar.com/avatar/{{user.gravatar}}.png?s=200" />
+            <br/>
+            {{user.site.displayName}} <br/>
+            {{user.site.givenName}} {{user.site.sn}} <br/>
+            <a ng-href="mailto:{{user.site.mail}}">{{user.site.mail}}</a><br/>
+            <a ng-href="{{user.site.url}}">{{user.site.url}}</a><br/>
+            Last Log: {{user.last_login|date:'medium'}}<br/>
+
+            <a class="btn btn-xs" ng-click="$user.openPasswd()">Change Password</a>
+
+        </div>
+
+        <div class="panel panel-default">
+            <div class="panel-heading">Groups</div>
+            <ul class="list-group">
+                <li class="list-group-item" ng-repeat="n in user.groups">{{n}}</li>
+            </ul>
+        </div>
+
+        <div class="panel panel-default">
+            <div class="panel-heading">Roles</div>
+            <ul class="list-group">
+                <li class="list-group-item" ng-repeat="n in user.roles">{{n}}</li>
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-8" ng-hide="editProfile">
+        <span style="float:right" ng-show="$user.ident == ident"><button class='btn btn-default' ng-click="site_txt=(user.site|txt); app_txt=(user.app|txt); local_txt=(user.local|txt); editProfile=true">Edit</button></span>
+        <div class="panel panel-default" ng-show="(user.site|txt) != ''">
+            <div class="panel-heading">Site Prefs</div>
+            <div class="panel-body"><pre style="border:0; background-color:inherit; color:inherit">{{user.site|txt}}</pre></div>
+        </div>
+
+        <div class="panel panel-default" ng-show="(user.app|txt) != ''">
+            <div class="panel-heading">App Prefs ({{user.aspect}})</div>
+            <div class="panel-body"><pre style="border:0; background-color:inherit; color:inherit">{{user.app|txt}}</pre></div>
+        </div>
+
+        <div class="panel panel-default" ng-show="(user.local|txt) != ''">
+            <div class="panel-heading">Local Prefs</div>
+            <div class="panel-body"><pre style="border:0; background-color:inherit; color:inherit">{{user.local|txt}}</pre></div>
+        </div>
+    </div>
+    <div class="col-md-8" ng-show="editProfile">
+        <h1>Edit Preferences for {{user.display_name}}</h1>
+
+        <form name="edit_user" ng-submit="$save(aspect, ident, site_txt, app_txt, local_txt); editProfile = false">
+        <div class="panel panel-default">
+            <div class="panel-heading"><label for="site_txt">Site Prefs</label></div>
+            <div class="panel-body"><textarea rows=10 id="site_txt" class="form-control" ng-model="site_txt"></textarea></div>
+        </div>
+
+        <div class="panel panel-default">
+            <div class="panel-heading"><label for="app_txt">App Prefs ({{user.aspect}})</label></div>
+            <div class="panel-body"><textarea rows=10 id="app_txt" class="form-control" ng-model="app_txt"></textarea></div>
+        </div>
+
+        <div class="panel panel-default">
+            <div class="panel-heading"><label for="local_txt">Local Prefs</label></div>
+            <div class="panel-body"><textarea rows=10 id="local_txt" class="form-control" ng-model="local_txt"></textarea></div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="button" class="btn btn-default" ng-click="editProfile = false">Cancel</button>
+        </form>
+    </div>
+</div>

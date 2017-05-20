@@ -1,0 +1,86 @@
+<div class="row">
+    <div class="col-md-4">
+        <div ng-show="active_aspect != undefined" class="panel panel-default">
+            <div class="panel-heading">Aspect: {{active_aspect}} <span style="float:right"><a ng-href="/admin">X</a></span></div>
+        </div>
+
+        <div ng-hide="active_aspect != undefined" class="panel panel-default">
+            <div class="panel-heading">Aspects</div>
+            <div class="list-group">
+                <a class="list-group-item" ng-class='{"active": n == active_aspect}' ng-repeat="n in aspectList" ng-href="/admin/{{n}}">{{n}}</a>
+            </div>
+            <div class="input-group">
+                <input type="text" class="form-control" ng-model="newAspect">
+
+                <span class="input-group-btn">
+                      <button class="btn btn-default" type="button" ng-click="addAspect(newAspect)">Add</button>
+                    </span>
+            </div>
+        </div>
+
+        <div ng-show="active_aspect != undefined">
+            <div class="panel  panel-default">
+                <div class="panel-heading">Groups</div>
+                <div class="list-group">
+                    <a class="list-group-item" ng-repeat="n in groupList" ng-class='{"active": n == active_group}' ng-href="/admin/{{aspect}}/group/{{n}}">{{n}}</a>
+                </div>
+                <div class="input-group">
+                    <input type="text" class="form-control" ng-model="newGroup">
+
+                    <span class="input-group-btn">
+                      <button class="btn btn-default" type="button" ng-click="addGroup(active_aspect,newGroup)">Add</button>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div ng-show="active_aspect != undefined">
+            <div class="panel  panel-default">
+                <div class="panel-heading">Hashes</div>
+                <div class="list-group">
+                        <a class="list-group-item" ng-repeat="n in hashList" ng-class='{"active": n == active_hash}' ng-href="/admin/{{aspect}}/hash/{{n}}">{{n|limitTo:39}}</a>
+                </div>
+                <div class="input-group">
+                    <input type="text" class="form-control" ng-model="newHash">
+
+                    <span class="input-group-btn">
+                      <button class="btn btn-default" type="button" ng-click="addHash(active_aspect,newHash)">Add</button>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <div class="col-md-8">
+        <div class="alert alert-danger" ng-show="error != undefined">
+            <button type="button" class="close" ng-click="error = undefined" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <b>Error Saving:</b> {{error.msg}}
+        </div>
+
+        <div ng-show="user_txt != undefined || role_txt != undefined">
+            <div class="row">
+                <div class="col-md-6">
+
+                    <form name="Users" ng-submit="$saveUser(aspect, group, user_txt)">
+                        <button class="btn btn-default btn-block">Save</button>
+                        <textarea class="form-control" rows=15 ng-model="user_txt"></textarea>
+                    </form>
+                </div>
+                <div class="col-md-6">
+
+                    <form name="Roles" ng-submit="$saveRole(aspect, group, role_txt)">
+                        <button class="btn btn-default btn-block">Save</button>
+                        <textarea class="form-control" rows=15 ng-model="role_txt"></textarea>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div ng-show="hash_txt != undefined">
+            <form name="Hash">
+                <button class="btn btn-default btn-block" ng-click="$save(aspect, name, hash_txt)">Save</button>
+                <textarea class="form-control" rows=25 ng-model="hash_txt"></textarea>
+                <button class="btn btn-danger btn-block" ng-click="$delete(aspect, name)">Delete</button>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,13 +1,13 @@
 package route
 
 import (
-	"net/http"
 	"encoding/json"
+	"net/http"
 )
 
 type Message struct {
 	Code int    `json:"code"`
-	Msg string  `json:"msg"`
+	Msg  string `json:"msg"`
 }
 
 func writeMsg(w http.ResponseWriter, code int, msg string) {
@@ -20,4 +20,3 @@ func writeObject(w http.ResponseWriter, code int, o interface{}) {
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(o)
 }
-

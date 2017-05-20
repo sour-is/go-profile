@@ -26,7 +26,7 @@ build:
 	go build -o $${BUILD}/opt/sour.is/bin/profile \
                  -ldflags "-X main.APP_VERSION=$${VERSION}-$${RELEASE} -X main.APP_BUILD=$${DATE}"\
            sour.is/x/profile; \
-	dpkg -b $${BUILD}; \
+	dpkg -b $${BUILD};
 
 copy:
 	export VERSION=`cat VERSION`; \

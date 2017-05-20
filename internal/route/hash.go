@@ -6,23 +6,23 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"database/sql"
+	"sour.is/x/dbm"
 	"sour.is/x/httpsrv"
 	"sour.is/x/ident"
 	"sour.is/x/profile/internal/model"
-	"sour.is/x/dbm"
-	"database/sql"
 )
 
 func init() {
 	httpsrv.IdentRegister("hash", httpsrv.IdentRoutes{
-		{"getHashList", "GET",    "/profile/hash.list({aspect:[@:0-9a-zA-Z._\\-\\*]+})", getHashList, },
-		{"getHash",     "GET",    "/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", getHash, },
-		{"putHash",     "PUT",    "/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", putHash, },
-		{"deleteHash",  "DELETE", "/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", deleteHash, },
+		{"getHashList", "GET", "/v1/profile/hash.list({aspect:[@:0-9a-zA-Z._\\-\\*]+})", getHashList},
+		{"getHash", "GET", "/v1/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", getHash},
+		{"putHash", "PUT", "/v1/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", putHash},
+		{"deleteHash", "DELETE", "/v1/profile/hash.map({aspect:[@:0-9a-zA-Z._\\-\\*]+},{name:[@:0-9a-zA-Z._\\-\\*]+})", deleteHash},
 	})
 }
 
-func getHashList (w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func getHashList(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 
@@ -64,7 +64,7 @@ func getHashList (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, lis)
 }
-func getHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func getHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	name := vars["name"]
@@ -78,8 +78,8 @@ func getHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			tx,
 			i.Aspect(),
 			i.Identity(),
-			"hash.read." + name,
-			"hash.write." + name,
+			"hash.read."+name,
+			"hash.write."+name,
 			"hash.reader",
 			"hash.writer",
 			"owner",
@@ -121,7 +121,7 @@ func getHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, m)
 }
-func putHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func putHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	name := vars["name"]
@@ -145,7 +145,7 @@ func putHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			tx,
 			i.Aspect(),
 			i.Identity(),
-			"hash.write." + name,
+			"hash.write."+name,
 			"hash.writer",
 			"owner",
 			"admin")
@@ -167,7 +167,7 @@ func putHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			return
 		}
 
-		m, ok, err = model.GetHashMap(tx, aspect, name);
+		m, ok, err = model.GetHashMap(tx, aspect, name)
 
 		return
 	})
@@ -188,7 +188,7 @@ func putHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusCreated, m)
 }
-func deleteHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func deleteHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	name := vars["name"]
@@ -203,7 +203,7 @@ func deleteHash (w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			tx,
 			i.Aspect(),
 			i.Identity(),
-			"hash.write." + name,
+			"hash.write."+name,
 			"hash.writer",
 			"owner",
 			"admin")

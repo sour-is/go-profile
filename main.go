@@ -3,12 +3,12 @@ package main
 import (
 	"os"
 	"os/signal"
-	"syscall"
 	"sour.is/x/log"
+	"syscall"
 
 	"sour.is/x/httpsrv"
-	_ "sour.is/x/uuid/routes"
 	_ "sour.is/x/profile/internal/route"
+	_ "sour.is/x/uuid/routes"
 
 	"sour.is/x/profile/internal/ldap"
 )
@@ -16,7 +16,7 @@ import (
 func main() {
 	initConfig()
 
-	if args["serve"] == true{
+	if args["serve"] == true {
 		go httpsrv.Run()
 		go ldap.Run()
 

@@ -1,20 +1,20 @@
 package main
 
 import (
-	"github.com/docopt/docopt.go"
-	"github.com/spf13/viper"
-	"sour.is/x/log"
 	"bytes"
 	"fmt"
+	"github.com/docopt/docopt.go"
+	"github.com/spf13/viper"
 	"sour.is/x/dbm"
 	"sour.is/x/httpsrv"
+	"sour.is/x/log"
 	_ "sour.is/x/profile/internal/ident"
 	"sour.is/x/profile/internal/ldap"
 )
 
 var (
 	APP_VERSION string
-	APP_BUILD string
+	APP_BUILD   string
 )
 
 var APP_NAME string = "Souris Profile API"
@@ -71,7 +71,7 @@ func initConfig() {
 	}
 
 	viper.SetConfigName("config")
-	if args["--config"] != nil{
+	if args["--config"] != nil {
 		viper.AddConfigPath(args["--config"].(string))
 	}
 
@@ -113,7 +113,7 @@ func initConfig() {
 
 		dbm.Config()
 
-		if err = dbm.Migrate(dbm.Asset{Asset, AssetDir}); err != nil {
+		if err = dbm.Migrate(dbm.Asset{File: Asset, Dir: AssetDir}); err != nil {
 			panic(err)
 		}
 

@@ -1,38 +1,30 @@
 package route
 
 import (
-	"sour.is/x/httpsrv"
+	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
-	"bytes"
-	"sour.is/x/log"
-	"encoding/hex"
-	"net/http"
-	"sour.is/x/ident"
 	"fmt"
-	"github.com/tumdum/bencoding"
-	"golang.org/x/crypto/ed25519"
-
-	"regexp"
-	"time"
-	"sour.is/x/profile/internal/profile"
-	"strings"
 	"github.com/dchest/captcha"
 	"github.com/gorilla/mux"
 	"hash/crc32"
-	"crypto/sha256"
+	"net/http"
+	"regexp"
 	"sour.is/x/dbm"
-	"database/sql"
+	"sour.is/x/httpsrv"
+	"sour.is/x/ident"
+	"sour.is/x/log"
 	"sour.is/x/profile/internal/model"
+	"sour.is/x/profile/internal/profile"
+	"strings"
+	"time"
 )
 
 func init() {
 	httpsrv.HttpRegister("auth", httpsrv.HttpRoutes{
-		{"putRegister","PUT","/profile/user.register", putRegister},
-//		{"getCheckAuth","POST", "/profile/user.checkauth", getCheckAuth},
-
-		{"postSession","POST", "/profile/user.session", postSession},
-		{"deleteSession","DELETE", "/profile/user.session", deleteSession},
-
+		{"putRegister", "PUT", "/v1/profile/user.register", putRegister},
+		{"postSession", "POST", "/v1/profile/user.session", postSession},
+		{"deleteSession", "DELETE", "/v1/profile/user.session", deleteSession},
 
 		// Rubicon Compatibility
 		{"rubiconAuthUser", "POST", "/api/v1/authentication/authenticateUser", rubiconAuthUser},
@@ -40,28 +32,28 @@ func init() {
 		{"rubiconSignoutToken", "GET", "/api/v1/authentication/signoutToken", rubiconSignoutToken},
 
 		// OAuth Compatibility
-		{"oauthToken", "POST", "/profile/oauth.token", oauthToken},
-
-		{"captcha",     "GET", "/profile/captcha/new",               captchaGen},
-		{"captcha",     "GET", "/profile/captcha/json",             captchaJson},
-		{"captchaCode", "GET", "/profile/captcha/{path}",           captchaCode},
-		{"captchaTest", "GET", "/profile/captcha/{captcha}/{code}", captchaTest},
+		{"oauthToken", "POST", "/v1/profile/oauth.token", oauthToken},
+		{"captcha", "GET", "/v1/profile/captcha/new", captchaGen},
+		{"captcha", "GET", "/v1/profile/captcha/json", captchaJson},
+		{"captchaCode", "GET", "/v1/profile/captcha/{path}", captchaCode},
+		{"captchaTest", "GET", "/v1/profile/captcha/{captcha}/{code}", captchaTest},
 	})
 
 	httpsrv.IdentRegister("oauth", httpsrv.IdentRoutes{
-		{"oauthClient",    "GET",  "/profile/oauth.authorize", oauthClient},
-		{"oauthAuthorize", "POST", "/profile/oauth.authorize",   oauthAuth},
-		{"oauthUser",      "GET",  "/profile/oauth.user",        oauthUser},
-		{"putRegister",    "POST", "/profile/user.passwd",      postPasswd},
+		{"getCheckAuth", "GET", "/v1/profile/user.checkauth", getCheckAuth},
+		{"oauthClient", "GET", "/v1/profile/oauth.authorize", oauthClient},
+		{"oauthAuthorize", "POST", "/v1/profile/oauth.authorize", oauthAuth},
+		{"oauthUser", "GET", "/v1/profile/oauth.user", oauthUser},
+		{"putRegister", "POST", "/v1/profile/user.passwd", postPasswd},
 	})
 }
 
 func captchaGen(w http.ResponseWriter, r *http.Request) {
 	id := captcha.New()
-	http.Redirect(w, r, "/profile/captcha/" + id + ".png", 302)
+	http.Redirect(w, r, "/profile/captcha/"+id+".png", 302)
 }
-func captchaJson(w http.ResponseWriter, r *http.Request) {
-	d := struct{
+func captchaJson(w http.ResponseWriter, _ *http.Request) {
+	d := struct {
 		Captcha string `json:"captcha"`
 	}{
 		captcha.New(),
@@ -70,7 +62,7 @@ func captchaJson(w http.ResponseWriter, r *http.Request) {
 	writeObject(w, 201, d)
 }
 func captchaCode(w http.ResponseWriter, r *http.Request) {
-	h := captcha.Server(240,80)
+	h := captcha.Server(240, 80)
 	h.ServeHTTP(w, r)
 }
 func captchaTest(w http.ResponseWriter, r *http.Request) {
@@ -86,6 +78,21 @@ func captchaTest(w http.ResponseWriter, r *http.Request) {
 	writeMsg(w, 200, "Valid Code")
 }
 
+func getCheckAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+	allowAnon := false
+
+	if h := r.Header.Get("allowAnon"); h == "true" {
+		allowAnon = true
+	}
+
+	if !allowAnon && !i.LoggedIn() {
+		writeMsg(w, http.StatusForbidden, "NO_IDENTITY")
+		return
+	}
+
+	writeMsg(w, http.StatusOK, "OK")
+}
+
 func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	defer r.Body.Close()
 
@@ -96,7 +103,7 @@ func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	var c map[string]string
 
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "ERROR: "+err.Error())
 		return
 	}
 
@@ -111,7 +118,7 @@ func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	ok, c, err = profile.GetHashMap("oauth-client", client)
 	if err != nil {
-		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "ERROR: "+err.Error())
 		return
 	}
 	if !ok {
@@ -142,23 +149,23 @@ func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		err = model.PutHashMap(tx, "oauth-token", code, m)
 
 		m = map[string]string{"code": code}
-		err = model.PutHashMap(tx, atUser, "OAUTH_" + client, m)
+		err = model.PutHashMap(tx, atUser, "OAUTH_"+client, m)
 
 		return
 	})
 	if err != nil {
-		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "ERROR: "+err.Error())
 		return
 	}
 
 	writeObject(w, http.StatusOK, m)
 }
-func oauthClient(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func oauthClient(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
 	client := r.URL.Query().Get("client_id")
 
 	ok, c, err := profile.GetHashMap("oauth-client", client)
 	if err != nil {
-		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "ERROR: "+err.Error())
 		return
 	}
 	if !ok {
@@ -182,7 +189,7 @@ func oauthToken(w http.ResponseWriter, r *http.Request) {
 	var ok bool
 
 	if _, client, err = profile.GetHashMap("oauth-client", clientId); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "ERROR: "+err.Error())
 		return
 	}
 
@@ -192,7 +199,7 @@ func oauthToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, user, err = profile.GetHashMap("oauth-token", code); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "ERROR: "+err.Error())
 		return
 	}
 
@@ -202,8 +209,8 @@ func oauthToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	atUser := "@" + strings.ToLower(user["ident"])
-	if ok, _, err = profile.GetHashMap(atUser, "OAUTH_" + clientId); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+	if ok, _, err = profile.GetHashMap(atUser, "OAUTH_"+clientId); err != nil {
+		writeMsg(w, http.StatusInternalServerError, "ERROR: "+err.Error())
 		return
 	}
 
@@ -215,7 +222,7 @@ func oauthToken(w http.ResponseWriter, r *http.Request) {
 
 	var token string
 	if token, _, _, err = profile.MakeSession("default", user["ident"], profile.ProfileNone); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR:" + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR:"+err.Error())
 		return
 	}
 
@@ -224,7 +231,7 @@ func oauthToken(w http.ResponseWriter, r *http.Request) {
 
 	writeObject(w, http.StatusOK, o)
 }
-func oauthUser(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func oauthUser(w http.ResponseWriter, _ *http.Request, i ident.Ident) {
 	if !i.LoggedIn() {
 		writeMsg(w, http.StatusForbidden, "NOT_AUTHORIZED")
 		return
@@ -232,7 +239,7 @@ func oauthUser(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	p, err := profile.GetUserProfile("oauth", i.Identity(), profile.ProfileGlobal)
 	if err != nil {
-		writeMsg(w, http.StatusInternalServerError, "ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "ERROR: "+err.Error())
 		return
 	}
 
@@ -242,41 +249,40 @@ func oauthUser(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	o.Email = p.GlobalMap["mail"]
 	o.Name = p.GlobalMap["displayName"]
 
-
 	writeObject(w, http.StatusOK, o)
 }
 
 type OAuthUser struct {
-	Id               int     `json:"id"`
-	Username         string  `json:"username"`
-	Email            string  `json:"email"`
-	Name             string  `json:"name"`
-	State            string  `json:"state"`
-	AvatarUrl        string  `json:"avatar_url"`
-	WebUrl           string  `json:"web_url"`
-	CreatedAt        string  `json:"created_at"`
-	IsAdmin          bool    `json:"is_admin"`
-	Bio              string  `json:"bio"`
-	Location         string  `json:"location"`
-	Skype            string  `json:"skype"`
-	LinkedIn         string  `json:"linkedin"`
-	Twitter          string  `json:"twitter"`
-	WebsiteUrl       string  `json:"website_url"`
-	Organization     string  `json:"organization"`
-	LastSignInAt     string  `json:"last_sign_in_at"`
-	ConfirmedAt      string  `json:"confirmed_at"`
-	ColorSchemeId    int     `json:"color_scheme_id"`
-	ProjectsLimit    int     `json:"projects_limit"`
-	CurrentSignInAt  string  `json:"current_sign_in_at"`
-	Identities       []OAuthIdentity  `json:"identities"`
-	CanCreateGroup   bool    `json:"can_create_group"`
-	CanCreateProject bool    `json:"can_create_project"`
-	TwoFactorEnabled bool    `json:"two_factor_enabled"`
-	External         bool    `json:"external"`
+	Id               int             `json:"id"`
+	Username         string          `json:"username"`
+	Email            string          `json:"email"`
+	Name             string          `json:"name"`
+	State            string          `json:"state"`
+	AvatarUrl        string          `json:"avatar_url"`
+	WebUrl           string          `json:"web_url"`
+	CreatedAt        string          `json:"created_at"`
+	IsAdmin          bool            `json:"is_admin"`
+	Bio              string          `json:"bio"`
+	Location         string          `json:"location"`
+	Skype            string          `json:"skype"`
+	LinkedIn         string          `json:"linkedin"`
+	Twitter          string          `json:"twitter"`
+	WebsiteUrl       string          `json:"website_url"`
+	Organization     string          `json:"organization"`
+	LastSignInAt     string          `json:"last_sign_in_at"`
+	ConfirmedAt      string          `json:"confirmed_at"`
+	ColorSchemeId    int             `json:"color_scheme_id"`
+	ProjectsLimit    int             `json:"projects_limit"`
+	CurrentSignInAt  string          `json:"current_sign_in_at"`
+	Identities       []OAuthIdentity `json:"identities"`
+	CanCreateGroup   bool            `json:"can_create_group"`
+	CanCreateProject bool            `json:"can_create_project"`
+	TwoFactorEnabled bool            `json:"two_factor_enabled"`
+	External         bool            `json:"external"`
 }
 type OAuthIdentity struct {
-	Provider string  `json:"provider"`
-	ExternId string  `json:"extern_id"`
+	Provider string `json:"provider"`
+	ExternId string `json:"extern_id"`
 }
 type OAuthToken struct {
 	Access  string `json:"access_token"`
@@ -292,7 +298,7 @@ func putRegister(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var reg UserCredential
 	if err = json.NewDecoder(r.Body).Decode(&reg); err != nil {
-		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST:" + err.Error())
+		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST:"+err.Error())
 		return
 	}
 	if !captcha.VerifyString(reg.Captcha, reg.Code) {
@@ -301,8 +307,8 @@ func putRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var ok bool
-	if ok, err = regexp.Match(`[A-Za-z0-9\\-\\_]+`, []byte(reg.Ident)); err != nil {
-		writeMsg(w, http.StatusBadRequest, "BAD_USERNAME:" + err.Error())
+	if ok, err = regexp.Match(`[A-Za-z0-9\-_]+`, []byte(reg.Ident)); err != nil {
+		writeMsg(w, http.StatusBadRequest, "BAD_USERNAME:"+err.Error())
 		return
 	}
 	if !ok {
@@ -312,7 +318,7 @@ func putRegister(w http.ResponseWriter, r *http.Request) {
 
 	ok, err = profile.CreateUser(reg.Ident, reg.Password)
 	if err != nil {
-		writeMsg(w, http.StatusInternalServerError, "UNKNOWN_ERR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "UNKNOWN_ERR: "+err.Error())
 		return
 	}
 	if !ok {
@@ -331,17 +337,17 @@ func postPasswd(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	var cred UserCredential
 
 	if err = json.NewDecoder(r.Body).Decode(&cred); err != nil {
-		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST: " + err.Error())
+		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST: "+err.Error())
 		return
 	}
 
-	if cred.Ident == "" || cred.Password == ""{
+	if cred.Ident == "" || cred.Password == "" {
 		writeMsg(w, http.StatusForbidden, "AUTH_FAILED")
 		return
 	}
 
 	if ok, err = profile.SetPassword(i.Identity(), cred.Password); err != nil {
-		writeMsg(w, http.StatusBadRequest, "ERROR: " + err.Error())
+		writeMsg(w, http.StatusBadRequest, "ERROR: "+err.Error())
 		return
 	}
 
@@ -353,7 +359,6 @@ func postPasswd(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	writeMsg(w, http.StatusCreated, "SET_PASSWD")
 }
 
-
 type UserCredential struct {
 	Ident    string `json:"ident"`
 	Aspect   string `json:"aspect"`
@@ -363,8 +368,8 @@ type UserCredential struct {
 }
 type UserSession struct {
 	profile.Profile
-	Token   string  `json:"token"`
-	Expires int64   `json:"expires"`
+	Token   string `json:"token"`
+	Expires int64  `json:"expires"`
 }
 
 func postSession(w http.ResponseWriter, r *http.Request) {
@@ -375,17 +380,17 @@ func postSession(w http.ResponseWriter, r *http.Request) {
 	var cred UserCredential
 
 	if err = json.NewDecoder(r.Body).Decode(&cred); err != nil {
-		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST: " + err.Error())
+		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST: "+err.Error())
 		return
 	}
-	if cred.Ident == "" || cred.Password == ""{
+	if cred.Ident == "" || cred.Password == "" {
 		writeMsg(w, http.StatusForbidden, "AUTH_FAILED")
 		return
 	}
 
 	var ok bool
 	if ok, err = profile.CheckPassword(cred.Ident, cred.Password); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR:" + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR:"+err.Error())
 		return
 	}
 	if !ok {
@@ -398,7 +403,7 @@ func postSession(w http.ResponseWriter, r *http.Request) {
 	var p profile.Profile
 
 	if key, expires, p, err = profile.MakeSession(cred.Aspect, cred.Ident, profile.ProfileAll); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR:" + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR:"+err.Error())
 		return
 	}
 
@@ -424,7 +429,7 @@ func deleteSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ok, err = profile.DeleteSession(token); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: "+err.Error())
 		return
 	}
 	if !ok {
@@ -438,21 +443,21 @@ func deleteSession(w http.ResponseWriter, r *http.Request) {
 //!- Rubicon Compatibility
 
 type RubiconCredentials struct {
-	Username string
-	Password string
+	Username      string
+	Password      string
 	GenerateToken string
 }
 type RubiconUserInfo struct {
-	UserId int64 `json:"userId"`
-	UserName string `json:"userName"`
-	Email string `json:"email"`
+	UserId    int64  `json:"userId"`
+	UserName  string `json:"userName"`
+	Email     string `json:"email"`
 	FirstName string `json:"firstName"`
-	LastName string `json:"lastName"`
+	LastName  string `json:"lastName"`
 }
 type RubiconUserAuth struct {
-	Token string `json:"token"`
-	Expires int64 `json:"expires"`
-	User RubiconUserInfo `json:"userInfo"`
+	Token   string          `json:"token"`
+	Expires int64           `json:"expires"`
+	User    RubiconUserInfo `json:"userInfo"`
 }
 
 func rubiconAuthUser(w http.ResponseWriter, r *http.Request) {
@@ -462,13 +467,13 @@ func rubiconAuthUser(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var creds RubiconCredentials
 	if err = json.NewDecoder(r.Body).Decode(&creds); err != nil {
-		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST: " + err.Error())
+		writeMsg(w, http.StatusBadRequest, "MALFORMED_REQUEST: "+err.Error())
 		return
 	}
 
 	var ok bool
 	if ok, err = profile.CheckPassword(creds.Username, creds.Password); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: "+err.Error())
 		return
 	}
 	if !ok {
@@ -481,13 +486,13 @@ func rubiconAuthUser(w http.ResponseWriter, r *http.Request) {
 	var p profile.Profile
 
 	if key, expires, p, err = profile.MakeSession("rubicon", creds.Username, profile.ProfileGlobal); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: "+err.Error())
 		return
 	}
 
 	ua := RubiconUserAuth{
 		key,
-		expires.UnixNano() / (int64(time.Millisecond)/int64(time.Nanosecond)),
+		expires.UnixNano() / (int64(time.Millisecond) / int64(time.Nanosecond)),
 		RubiconUserInfo{
 			1,
 			creds.Username,
@@ -506,7 +511,7 @@ func rubiconCheckToken(w http.ResponseWriter, r *http.Request) {
 
 	token := r.URL.Query().Get("user_token")
 	if ok, p, err = profile.CheckSession("rubicon", token, profile.ProfileGlobal); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: "+err.Error())
 		return
 	}
 	if !ok {
@@ -530,7 +535,7 @@ func rubiconSignoutToken(w http.ResponseWriter, r *http.Request) {
 
 	token := r.URL.Query().Get("user_token")
 	if ok, err = profile.DeleteSession(token); err != nil {
-		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: " + err.Error())
+		writeMsg(w, http.StatusInternalServerError, "SERVER_ERROR: "+err.Error())
 		return
 	}
 	if !ok {
@@ -543,8 +548,9 @@ func rubiconSignoutToken(w http.ResponseWriter, r *http.Request) {
 
 // Check Auth
 
-func getCheckAuth(w http.ResponseWriter, r *http.Request) {
 /*
+
+func getCheckAuth(w http.ResponseWriter, r *http.Request) {
 	i := ident.Ident{}
 
 
@@ -559,7 +565,6 @@ func getCheckAuth(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(s.Json())
-*/
 }
 func getCheckAuth2(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	s := `{"sig": "TUzn2hDuXy0npeadUUOIa90OTE/oKMH2zr1RWGEWQYNSbrNPlJ9HbZ8cRuihFBHAcBICaVi4lgJkZGk0Fep3CQ==",
@@ -648,12 +653,15 @@ func (t AuthSignature) Verify() bool {
 	return vfy
 }
 
-func dec(s string) (b []byte, err error) {
+func dec(s string) (dst []byte, err error) {
 	src := []byte(s)
-	dst := make([]byte, hex.DecodedLen(len(src)))
+	dst = make([]byte, hex.DecodedLen(len(src)))
 	_, err = hex.Decode(dst, src)
 	return dst, err
 }
+
+*/
+
 func enc(b []byte) string {
 	return fmt.Sprintf("%x", b)
 }
