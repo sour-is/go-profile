@@ -20,3 +20,8 @@ func writeObject(w http.ResponseWriter, code int, o interface{}) {
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(o)
 }
+func writeText(w http.ResponseWriter, code int, o string) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(code)
+	w.Write([]byte(o))
+}

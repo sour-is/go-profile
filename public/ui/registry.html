@@ -1,0 +1,129 @@
+<style>
+
+.sidebar .list-group-item {
+    padding: 2px;
+    background:#111;
+    color: greenyellow;
+    border:0;
+    font-family: Hack
+}
+.main {
+    font-family: Hack;
+}
+
+@media (min-width: 768px) {
+    .sidebar {
+        position:absolute;
+        height:70vh;
+        width: 25vw;
+    }
+    .sidebar .list-group {
+        height:100%;
+        overflow-y: scroll;
+    }
+    .main {
+        position: absolute;
+        margin-left: 25vw;
+    }
+}
+@media (min-width: 992px) {
+    .sidebar {
+        position:fixed;
+        height:70vh;
+    }
+    .sidebar .list-group {
+        height:100%;
+        overflow-y: scroll;
+    }
+    .main {
+        position: absolute;
+        margin-left: 25vw;
+    }
+}
+
+
+</style>
+
+<div class="row">
+    <div class="col-lg-3 sidebar" ng-init="type = 'dns'" >
+        <uib-tabset>
+            <uib-tab heading="Directory">
+
+            <select class="form-control" ng-model="type" ng-options="i.name as i.name for i in types" ng-change="$loadList(type)" placeholder="Select Type"></select>
+            <input class="form-control" ng-model="filter" class="form-control" placeholder="Filter Results"/>
+
+            <div class="list-group">
+                <a class="list-group-item" ng-repeat="n in list|orderBy:'_name'|filter:filter" ng-click="$loadObj(n._uri)">
+                    {{(n._uri|regName).name}}
+                </a>
+            </div>
+
+            </uib-tab>
+
+            <uib-tab heading="Network">
+
+                <form name="SearchIP" ng-submit="$loadNet(query)">
+                    <div class="input-group">
+                        <input ng-model="query" class="form-control" placeholder="172.2x.x.x or fd00::"/>
+                        <span class="input-group-btn"><button type="submit" class="btn btn-default">Load</button></span>
+                    </div>
+                </form>
+
+
+                <div class="list-group">
+                    <h5 ng-show="parents.length > 0">Parents</h5>
+                    <a class="list-group-item" ng-repeat="n in parents" ng-click="$loadNet(n.$uri)">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}})</b></a>
+
+                    <h4>inetnum {{(ip.$uri|regName).name}}</h4>
+
+                    <h5 ng-show="children.length > 0">children</h5>
+                    <a class="list-group-item" ng-repeat="n in children|orderBy:'+$netlevel'" ng-click="$loadNet(n.$uri)">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}})</b></a>
+                </div>
+
+            </uib-tab>
+
+            <uib-tab heading="Related">
+
+            <h5 ng-if="related.length == 0">No Related MNT objects found</h5>
+
+            <input class="form-control" ng-model="filter" class="form-control" placeholder="Filter Results"/>
+
+            <div class="list-group">
+
+                <h5 ng-repeat-start="r in related">{{r.name}}</h5>
+                <a ng-repeat-end class="list-group-item"
+                   ng-repeat="n in r.items|filter:filter|orderBy:'uri'"
+                   ng-click="$loadObj(n.uri)" title="{{n.uri|regName}}">
+                      {{(n.uri|regName).name}} <b>({{(n.uri|regName).sub|default:(n.uri|regName).type}})</b>
+                </a>
+
+            </div>
+
+            </uib-tab>
+        </uib-tabset>
+    </div>
+    <div class="col-lg-9 col-md-9 main">
+
+    <div ng-repeat="d in data">
+
+        <uib-tabset>
+        <uib-tab heading="Table View">
+            <table class="table table-condensed">
+                <tbody>
+                <tr ng-repeat="l in d">
+                    <td style="padding:0px; width:140px; vertical-align: top">{{l[0]}}</td>
+                    <td style="padding:0px"><pre style="background-color: #444; color: white; margin:0">{{l[1]}}</pre></td>
+                </tr>
+                </tbody>
+            </table>
+        </uib-tab>
+        <uib-tab heading="Raw Text">
+            <pre ng-repeat="d in data">{{d|regtxt}}</pre>
+        </uib-tab>
+        </uib-tabset>
+
+    </div>
+
+
+    </div>
+</div>

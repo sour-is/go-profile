@@ -74,8 +74,25 @@ m.factory('$sourisRemoteService', ['$remoteService','localStore',
         };
     }
 ]);
+m.factory('$locationReload', ['$route', '$rootScope', '$location', function($route, $rootScope, original) {
+    var location = {};
+    for (var name in original) if (original.hasOwnProperty(name)) location[name] = original[name];
+    location.path = function(path, reload) {
+        if (reload === false) {
+            var lastRoute = $route.current;
+            var un = $rootScope.$on('$locationChangeSuccess', function () {
+                $route.current = lastRoute;
+                un();
+            });
+        }
+        return original.path(path);
+    };
 
-m.filter('default', function() { return function (a, b) { return a===undefined||a===""?b:a; }; });
+    return location;
+}]);
+
+
+m.filter('default', function() { return function (a, b) { return a===null||a===undefined||a===""?b:a; }; });
 m.filter('lpad', function () {
     return function (v,l,p) {
         if (v === undefined || l === undefined) return "";

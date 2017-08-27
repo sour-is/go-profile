@@ -5,6 +5,7 @@
 ,"theme":"dark"
 ,"site_nav":
  {"link":"/", "title":"Sour.is", "items":[
-   {"link":"/peer",      "title":"Peers"}
+   {"link":"/peer",      "title":"Peers"},
+   {"link":"/registry/",  "title":"Registry"}
  ]}
 }

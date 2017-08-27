@@ -344,7 +344,7 @@ func CreateUser(user, password string) (ok bool, err error) {
 		}
 
 		// Write to profile hash.
-		if err = model.PutHashMap(tx, "default", atUser, map[string]string{"displayName": user}); err != nil {
+		if err = model.PutHashMap(tx, "global", atUser, map[string]string{"displayName": user}); err != nil {
 			return
 		}
 

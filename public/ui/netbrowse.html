@@ -1,0 +1,59 @@
+<div class="row">
+    <div class="col-md-4">
+        <form name="SearchIP" ng-submit="$load(query)">
+            <div class="input-group">
+                <input ng-model="query" class="form-control" placeholder="172.2x.x.x or fd00::"/>
+                <span class="input-group-btn">
+                    <button type="submit" class="btn btn-default">Load</button>
+                </span>
+            </div>
+        </form>
+
+
+        <div ng-show="parents.length > 0">
+            <h4>Parents</h4>
+            <ul>
+                <li ng-repeat="n in parents">
+                    <a ng-href="/registry/net/{{n.$uri}}">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}})</b></a>
+                </li>
+            </ul>
+        </div>
+
+        <h4>inetnum {{(ip.$uri|regName).name}}</h4>
+
+        <div ng-show="children.length > 0">
+            <h4>children</h4>
+            <ul>
+                <li ng-repeat="n in children|orderBy:'+$netlevel'">
+                    <a ng-href="/registry/net/{{n.$uri}}">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}})</b></a>
+                </li>
+            </ul>
+        </div>
+        <div ng-show="related.length > 0">
+            <h4>Related MNT Objects</h4>
+
+            <div ng-repeat="r in related">
+                <h5>{{r.name}}</h5>
+                <ul>
+                    <li ng-repeat="n in r.items|orderBy:'uri'">
+                        <a ng-href="/registry/obj/{{n.name}}" title="{{n.uri|regName}}">{{(n.uri|regName).name}} <b>({{(n.uri|regName).sub|default:(n.uri|regName).type}})</b></a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div ng-repeat="d in data">
+
+            <table class="table table-condensed">
+                <tbody>
+                <tr ng-repeat="l in d">
+                    <td style="padding:0px; width:140px; vertical-align: top">{{l[0]}}</td>
+                    <td style="padding:0px"><pre style="background-color: #444; color: white; margin:0">{{l[1]}}</pre></td>
+                </tr>
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</div>

@@ -1,0 +1,38 @@
+<div class="row">
+    <div class="col-md-3">
+        <div ng-show="related.length > 0">
+            <a class="btn btn-default" ng-show="ip != undefined" ng-href="/registry/net/{{ip}}">View Network</a>
+
+            <h4>Related MNT Objects</h4>
+
+            <div ng-repeat="r in related">
+            <h5>{{r.name}}</h5>
+            <ul>
+                <li ng-repeat="n in r.items|orderBy:'uri'">
+                    <a ng-href="/registry/obj/{{n.name}}" title="{{n.uri|regName}}">{{(n.uri|regName).name}} <b>({{(n.uri|regName).sub|default:(n.uri|regName).type}})</b></a>
+                </li>
+            </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div ng-repeat="d in data" style="overflow:auto">
+            <table class="table table-condensed">
+                <thead>
+                <tr>
+                    <td style="min-width:80px"></td>
+                    <td></td>
+                </tr>
+                </thead>
+                <tbody>
+                <tr ng-repeat="l in d">
+                    <td style="padding:0px; vertical-align: top">{{l[0]}}</td>
+                    <td style="padding:0px"><pre style="background-color: #444; color: white; margin:0">{{l[1]}}</pre></td>
+                </tr>
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</div>

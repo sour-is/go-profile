@@ -33,7 +33,7 @@ copy:
 	export RELEASE=`cat RELEASE`; \
 	export BUILD="BUILD/$(NAME)_$${VERSION}-$${RELEASE}"; \
 	scp "$${BUILD}.deb" $(REPO_IP):$(REPO_PATH); \
-	ssh $(REPO_IP) -- $(REPO_PATH)scan.sh "$(REPO_PATH)$(NAME)_$${VERSION}-$${RELEASE}.deb";
+	ssh $(REPO_IP) -- $(REPO_PATH)scan.sh "$(NAME)_$${VERSION}-$${RELEASE}.deb";
 
 deploy:
 	ansible kapha -s -m apt -a "name=sour.is-profile update_cache=yes state=latest"

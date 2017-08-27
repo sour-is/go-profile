@@ -106,7 +106,7 @@
         </li>
         
         <li ng-if="user.active">
-            <a><span title="{{user.display_name}}"><i class="fa fa-user" ></i> {{user.ident}}</span></a>
+            <a><span title="{{user.ident}}"><i class="fa fa-user" ></i> {{user.display_name}}</span></a>
         </li>
     </script>
     <script type="text/ng-template" id="souris-user-passwd">
@@ -119,7 +119,7 @@
 
       <li ng-if="user.active" uib-dropdown>
           <a uib-dropdown-toggle>
-              <span title="{{user.ident}}"><i class="fa fa-user" ></i> {{user.ident}}</span> <span class="caret"></span></a>
+              <span title="{{user.ident}}"><i class="fa fa-user" ></i> {{user.display_name}}</span> <span class="caret"></span></a>
 
           <ul uib-dropdown-menu>
               <li ng-if="user.$role('admin')"><a ng-href="/admin" ng-click="$root.isCollapsed = true"><i class="glyphicon glyphicon-dashboard"></i> Admin</a></li>
@@ -217,6 +217,8 @@
     <script src='//cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/2.2.0/ui-bootstrap.min.js' integrity="sha384-tdOpZhp2ycVJEfR3c+nRA7fuP6bb60RFoAhRSCzhOrxH+nFMdDTgNjVXNbDolueE" crossorigin="anonymous"></script>
     <script src='//cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/2.2.0/ui-bootstrap-tpls.min.js' integrity="sha384-VylGEhx9c0rLs0a22oXTBIf7+y1aaUhRmEQ6hu+tnHCY8ic7b82t3DDOaohm8zB0" crossorigin="anonymous"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/remarkable/1.7.1/remarkable.min.js" integrity="sha256-ltAts6+/XysEs9E5RF/t0H+0eD3ET6NpbqzshWkqeic=" crossorigin="anonymous"></script>
+
+    <link rel='stylesheet' href='//cdn.jsdelivr.net/font-hack/2.020/css/hack.min.css' integrity="sha384-H5e0RJpnyDO9imPVrfUJSBYtDF+3/DTHekmucchq8nG7NV7KcGFj0dGlkxgkKX78" crossorigin="anonymous">
 
     <script src='/ui/souris.js'></script>
     <script src='app.js'></script>

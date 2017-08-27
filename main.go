@@ -1,4 +1,4 @@
-package main
+package main // import "sour.is/x/profile"
 
 import (
 	"os"

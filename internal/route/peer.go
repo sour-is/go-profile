@@ -10,6 +10,7 @@ import (
 	"sour.is/x/ident"
 	"sour.is/x/profile/internal/model"
 	"strings"
+	"bytes"
 )
 
 func init() {
@@ -19,6 +20,11 @@ func init() {
 		{"getNode", "GET", "/v1/peers/peer.node({id})", getNode},
 		{"putNode", "PUT", "/v1/peers/peer.node({id})", putNode},
 		{"putNode", "DELETE", "/v1/peers/peer.node({id})", deleteNode},
+
+		{"getRegIndex", "GET", "/v1/reg/reg.index({name:[0-9A-Z\\-]+})", getRegIndex},
+		{"getRegObject", "GET", "/v1/reg/reg.object({type},{name:[0-9a-zA-Z\\-\\.:_]+})", getRegObject},
+		{"getRegObjects", "GET", "/v1/reg/reg.objects", getRegObjects},
+
 	})
 }
 
@@ -87,8 +93,12 @@ func putNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	}
 
 	node.Id = id
-	if strings.ToLower(node.Nick) != i.Identity() {
-		writeMsg(w, http.StatusForbidden, "peer_nick should match user ident "+node.Nick+" == "+i.Identity())
+	if node.Owner == "" {
+		node.Owner = strings.ToLower(i.Identity())
+	}
+
+	if strings.ToLower(node.Owner) != strings.ToLower(i.Identity()) {
+		writeMsg(w, http.StatusForbidden, "peer_owner should match user ident "+node.Owner+" == "+i.Identity())
 		return
 	}
 
@@ -104,9 +114,9 @@ func putNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 			return
 		}
-		if check.Nick != i.Identity() {
+		if strings.ToLower(check.Owner) != strings.ToLower(i.Identity()) {
 			ok = false
-			writeMsg(w, http.StatusForbidden, "peer_nick should match user ident "+node.Nick+" == "+i.Identity())
+			writeMsg(w, http.StatusForbidden, "peer_owner should match user ident "+node.Owner+" == "+i.Identity())
 			return
 		}
 		if node, err = node.Update(tx); err != nil {
@@ -144,9 +154,9 @@ func deleteNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			writeMsg(w, http.StatusNotFound, "Not Found")
 			return
 		}
-		if strings.ToLower(node.Nick) != i.Identity() {
+		if strings.ToLower(node.Owner) != i.Identity() {
 			ok = false
-			writeMsg(w, http.StatusForbidden, "peer_nick should match user ident: "+node.Nick+" == "+i.Identity())
+			writeMsg(w, http.StatusForbidden, "peer_owner should match user ident: "+node.Owner+" == "+i.Identity())
 			return
 		}
 
@@ -163,4 +173,114 @@ func deleteNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	}
 
 	writeObject(w, http.StatusNoContent, node)
+}
+
+func getRegIndex(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+	vars := mux.Vars(r)
+	id := vars["name"]
+
+	var err error
+	var lis []model.RegIndex
+/*
+	if !i.LoggedIn() {
+		writeMsg(w, http.StatusForbidden, "Access Denied")
+		return
+	}
+*/
+	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+		lis, err = model.GetRegIndex(tx, id)
+		return
+	})
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	var m [][]string
+	for _, n := range lis {
+		m = append(m, []string{n.Type, n.Name})
+	}
+
+	writeObject(w, http.StatusOK, m)
+}
+
+func getRegObject(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+	vars := mux.Vars(r)
+	typeId := vars["type"]
+	name := vars["name"]
+
+	var err error
+	var o model.RegObject
+
+/*
+	if !i.LoggedIn() {
+		writeMsg(w, http.StatusForbidden, "Access Denied")
+		return
+	}
+*/
+	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+		o, err = model.GetRegObject(tx, typeId, name)
+		return
+	})
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	var m [][]string
+	for _, n := range o.Items {
+		m = append(m, []string{n.Field, n.Value})
+	}
+
+	writeObject(w, http.StatusOK, m)
+}
+
+
+func getRegObjects(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+
+	var err error
+	var lis []model.RegObject
+
+	/*
+		if !i.LoggedIn() {
+			writeMsg(w, http.StatusForbidden, "Access Denied")
+			return
+		}
+	*/
+	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+		lis, err = model.GetRegObjects(tx, r.URL.Query().Get("filter"), r.URL.Query().Get("fields"))
+		return
+	})
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+
+
+	if strings.Contains(r.Header.Get("accept"),"application/json") {
+		m := make([][][]string,0,len(lis))
+		for _, o := range lis {
+			var l [][]string
+			for _, n := range o.Items {
+				l = append(l, []string{n.Field, n.Value})
+			}
+			m = append(m, l)
+		}
+
+		writeObject(w, http.StatusOK, m)
+	} else {
+		buf := new(bytes.Buffer)
+		for _, o := range lis {
+			buf.WriteString("---\n")
+			for _, n := range o.Items {
+				buf.WriteString(n.Field)
+				buf.WriteString(": ")
+				buf.WriteString(n.Value)
+				buf.WriteString("\n")
+			}
+		}
+
+		writeText(w, http.StatusOK, buf.String())
+	}
 }

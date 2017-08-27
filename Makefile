@@ -14,8 +14,7 @@ clean:
 
 fmt:   $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	find . -type f -name "*.go" -printf "%h\n"|sort -u|xargs go fmt
-	find . -type f -name "*.go" -printf "%h\n"|sort -u|xargs go vet
-
+	go tool vet -composite=false
 
 $(BINARY): $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	go build

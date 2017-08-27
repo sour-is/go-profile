@@ -1,7 +1,6 @@
 AppConfig.guest = false;
 
 var app = angular.module('souris-app', ['souris-common']);
-
 app.config(['$routeProvider', function(route) {
   route.
     when('/',                            HOME).
@@ -19,12 +18,24 @@ app.config(['$routeProvider', function(route) {
 
     when('/peer',                       PEERS).
     when('/peer/:id',                   PEERS).
+
+    when('/registry',                  REGISTRY).
+    when('/registry/type',           REGISTRY).
+    when('/registry/type/:type',    REGISTRY).
+
+
+    when('/registry/net',              NETBROWSE).
+    when('/registry/net/:net',         NETBROWSE).
+    when('/registry/obj',              OBJBROWSE).
+    when('/registry/obj/:name',        OBJBROWSE).
+
     otherwise({redirectTo:'/'});
 }]);
 
 function menu_items(self, active) {
     return {title: "", items: [{link: '/',      title: "Home", active: "home" === active}]};
 }
+
 
 var HOME = {
     templateUrl: '/ui/home.html',
@@ -386,8 +397,10 @@ var PEERS = {
         if (!self.$user.active) return;
 
         var user = 'anon';
-        if (self.$user.ident !== undefined) user = self.$user.ident;
+        var owner = 'anon';
+        if (self.$user.ident !== undefined) { user = self.$user.ident; owner = self.$user.ident; }
         if (self.$user.display_name !== undefined) user = self.$user.display_name;
+
 
         self.TYPE = ["openvpn","fastd","gre/ipsec","gre/plain","l2tp","pptp","tinc","wireguard","zerotier","other"];
         self.FAMILY = {1:"ipv4", 2:"ipv6", 3:"both"};
@@ -398,7 +411,6 @@ var PEERS = {
             d.peer_type = d.peer_type.split(",");
 
             self.node = d;
-
             self.node_txt = encodeConfig(d);
         };
         var setNodes = function(d) {
@@ -413,6 +425,12 @@ var PEERS = {
             self.error = undefined;
             self.saved = true;
 
+            var found=false;
+            for (var i=0; i<self.nodes.length; i++) {
+                if (self.nodes[i].peer_id === d.peer_id) found=true;
+            }
+            if (!found) self.nodes.push(d);
+
             setNode(d);
         };
         var setDeleted = function() {
@@ -423,6 +441,7 @@ var PEERS = {
             setNode({
                 peer_name: ""
             ,   peer_nick: user
+            ,   peer_owner: owner
             ,   peer_country: "XD"
             ,   peer_type: "openvpn"
             ,   peer_family: 3
@@ -471,6 +490,280 @@ var PEERS = {
         else self.newNode();
     }]
 };
+
+var REGISTRY = {
+    templateUrl: '/ui/registry.html',
+    controller: ['$scope', '$routeParams', '$sourisRemoteService', function(self, args, req) {
+        self.$cfg.guest = true;
+        self.$cfg.wideview = true;
+
+        self.related = [];
+        self.list = [];
+        self.data = [];
+
+        self.types = [{name:'dns'}, {name:'net'}, {name:'person'}, {name:'aut-num'},  {name:'organisation'}, {name:'mntner'}, {name:'as-set'}, {name:'as-block'}];
+
+        self.$loadList = function(q){
+            req('/v1/reg/reg.objects')
+                .get({filter: '@type=='+ q, fields: "@uri,@name"})
+                .success(function(d){
+
+                    var x = [];
+                    for (var i=0; i<d.length; i++) {
+                        var o = {};
+                        for (var j=0; j<d[i].length; j++) {
+                            o[d[i][j][0].replace("@","_")] = d[i][j][1];
+                        }
+                        x.push(o);
+                    }
+                    self.list = x.sort(function(a,b){ return a.$uri === b.$uri ? 0 : (a.$uri > b.$uri ? 1 : -1); });
+                    self.$loadObj(x[0]._uri);
+                })
+        };
+        args.type && self.$loadList(args.type);
+        args.type || self.$loadList(self.types[0].name);
+
+
+        self.$loadRelated = function(name) {
+            var a = {name: name, items: []};
+            req("/v1/reg/reg.objects")
+                .get({filter: "mnt-by=" + name, fields: "@uri,@name"})
+                .success(function(d) {
+
+                    for (var i=0; i<d.length; i++) {
+                        var x = {};
+                        for (var j = 0; j < d[i].length; j++)
+                            x[d[i][j][0].substr(1)] = d[i][j][1];
+
+                        a.items.push(x);
+                    }
+                    self.related.push(a);
+                });
+        };
+
+        self.$loadObj = function(uri) {
+            req("/v1/reg/reg.objects")
+                .get({filter:"@uri=" + uri})
+                .success(function(d) {
+                    self.data = [];
+                    for (var i=0; i<d.length; i++)
+                        self.data.push(d[i].filter(function(e){return e[0][0] !== '@'; }));
+
+                    self.related = [];
+                    for (i=0; i<self.data[0].length; i++) {
+                        if (self.data[0][i][0] === 'mnt-by')
+                            self.$loadRelated(self.data[0][i][1]);
+                    }
+                })
+        };
+
+        self.$loadChildren = function(n) {
+            if (n === undefined) return;
+            var level = parseInt(n['$netlevel']) + 1;
+            level = pad(level, 3);
+
+            req("/v1/reg/reg.objects")
+                .get({filter: "@netmin=ge=" + n['$netmin'] + ",@netmax=le=" + n['$netmax'] + ",@netlevel=eq=" + level,
+                    fields: "@uri,@netmin,@netmax,@netlevel"})
+                .success(function(d) {
+                    var x = [];
+                    for (var i=0; i<d.length; i++) {
+                        var o = {};
+                        for (var j=0; j<d[i].length; j++) {
+                            o[d[i][j][0].replace("@","\$")] = d[i][j][1];
+                        }
+                        x.push(o);
+                    }
+                    x = x.sort(function(a,b){ return a.$uri === b.$uri ? 0 : (a.$uri > b.$uri ? 1 : -1); });
+
+                    self.children = x;
+                });
+        };
+
+        self.$loadNet = function(net) {
+            n = expandIP(net);
+
+            if (n===false) return;
+
+            req("/v1/reg/reg.objects")
+                .get({filter: "@type=neq=route,@type=neq=route6,@netmin=le=" + n['min'] + ",@netmax=ge=" + n['max'] + ",@netmask=le=" + pad(n['mask'],3),
+                    fields: "@uri,@netmin,@netmax,@netlevel"})
+                .success(function(d){
+                    var x = [];
+                    var lvl = "";
+                    for (var i=0; i<d.length; i++) {
+                        var o = {};
+                        for (var j=0; j<d[i].length; j++) {
+                            o[d[i][j][0].replace("@","\$")] = d[i][j][1];
+                        }
+                        x.push(o);
+                        if (lvl < o.$netlevel) {
+                            lvl = o.$netlevel;
+                            self.ip = o;
+                        }
+                    }
+                    x = x.sort(function(a,b){ return parseInt(a.$netlevel) - parseInt(b.$netlevel); });
+
+                    self.parents = x.slice(0, x.length - 1);
+                    if (net.substr(0,9) !== 'dn42.net.') {
+                        net = self.ip.$uri;
+                    }
+                    self.$loadObj(net);
+
+                    self.$loadChildren(self.ip);
+                });
+        };
+
+        args.net && self.$loadNet(args.net);
+        args.net || self.$loadNet("::");
+
+
+    }]
+};
+var NETBROWSE = {
+    templateUrl: 'ui/netbrowse.html',
+    controller: ['$scope','$routeParams', '$sourisRemoteService', function(self, args, req) {
+        self.$cfg.guest = true;
+        self.$cfg.wideview = true;
+
+
+        self.related = [];
+
+        self.$loadRelated = function(name) {
+            var a = {name: name, items: []};
+            req("/v1/reg/reg.objects")
+                .get({filter: "mnt-by=" + name, fields: "@uri,@name"})
+                .success(function(d) {
+                    for (var i=0; i<d.length; i++) {
+                        var x = {};
+                        for (var j = 0; j < d[i].length; j++)
+                            x[d[i][j][0].substr(1)] = d[i][j][1];
+
+                        a.items.push(x);
+                    }
+                    self.related.push(a);
+                });
+        };
+        self.$loadChildren = function(n) {
+            if (n === undefined) return;
+            var level = parseInt(n['$netlevel']) + 1;
+            level = pad(level, 3);
+
+            req("/v1/reg/reg.objects")
+                .get({filter: "@netmin=ge=" + n['$netmin'] + ",@netmax=le=" + n['$netmax'] + ",@netlevel=eq=" + level,
+                      fields: "@uri,@netmin,@netmax,@netlevel"})
+                .success(function(d) {
+                    var x = [];
+                    for (var i=0; i<d.length; i++) {
+                        var o = {};
+                        for (var j=0; j<d[i].length; j++) {
+                            o[d[i][j][0].replace("@","\$")] = d[i][j][1];
+                        }
+                        x.push(o);
+                    }
+                    x = x.sort(function(a,b){ return a.$uri === b.$uri ? 0 : (a.$uri > b.$uri ? 1 : -1); });
+
+                    self.children = x;
+                });
+        };
+        self.$load = function(net) {
+            n = expandIP(net);
+
+            if (n===false) return;
+
+            req("/v1/reg/reg.objects")
+                .get({filter: "@type=neq=route,@type=neq=route6,@netmin=le=" + n['min'] + ",@netmax=ge=" + n['max'] + ",@netmask=le=" + pad(n['mask'],3),
+                      fields: "@uri,@netmin,@netmax,@netlevel"})
+                .success(function(d){
+                    var x = [];
+                    var lvl = "";
+                    for (var i=0; i<d.length; i++) {
+                        var o = {};
+                        for (var j=0; j<d[i].length; j++) {
+                            o[d[i][j][0].replace("@","\$")] = d[i][j][1];
+                        }
+                        x.push(o);
+                        if (lvl < o.$netlevel) {
+                            lvl = o.$netlevel;
+                            self.ip = o;
+                        }
+                    }
+                    x = x.sort(function(a,b){ return parseInt(a.$netlevel) - parseInt(b.$netlevel); });
+
+                    self.parents = x.slice(0, x.length - 1);
+                    if (net.substr(0,9) !== 'dn42.net.') {
+                        net = self.ip.$uri;
+                    }
+                    self.$loadData(net);
+
+                    self.$loadChildren(self.ip);
+                });
+        };
+        self.$loadData = function(uri) {
+            req("/v1/reg/reg.objects")
+                .get({filter:"@uri=" + uri})
+                .success(function(d) {
+                    self.data = [];
+                    for (var i=0; i<d.length; i++)
+                        self.data.push(d[i].filter(function(e){return e[0][0] !== '@'; }));
+
+                    for (i=0; i<self.data[0].length; i++) {
+                        if (self.data[0][i][0] === 'mnt-by')
+                            self.$loadRelated(self.data[0][i][1]);
+                    }
+                })
+        };
+
+        if (args.net === undefined) args.net = '::';
+        self.$load(args.net);
+    }]
+};
+var OBJBROWSE = {
+    templateUrl: 'ui/objbrowse.html',
+    controller: ['$scope','$routeParams', '$sourisRemoteService', function(self, args, req) {
+        self.$cfg.guest = true;
+        self.$cfg.wideview = true;
+
+        self.related = [];
+
+        self.$loadRelated = function(name) {
+            var a = {name: name, items: []};
+            req("/v1/reg/reg.objects")
+                .get({filter: "mnt-by=" + name, fields: "@uri,@name"})
+                .success(function(d) {
+                    for (var i=0; i<d.length; i++) {
+                        var x = {};
+                        for (var j = 0; j < d[i].length; j++)
+                            x[d[i][j][0].substr(1)] = d[i][j][1];
+
+                        a.items.push(x);
+                    }
+                    self.related.push(a);
+                });
+        };
+
+        self.$loadData = function(name) {
+            req("/v1/reg/reg.objects")
+                .get({filter:"@name=" + name})
+                .success(function(d) {
+                    self.data = [];
+                    for (var i=0; i<d.length; i++)
+                        self.data.push(d[i].filter(function(e){return (e[0] === '@uri' ? true : e[0][0] !== '@'); }));
+
+                    for (i=0; i<self.data[0].length; i++) {
+                        if (self.data[0][i][0] === 'mnt-by')
+                            self.$loadRelated(self.data[0][i][1]);
+
+                        if (self.data[0][i][0] === '@uri' && self.data[0][i][1].substr(0,9) === 'dn42.net.') {
+                                self.ip = self.data[0][i][1];
+                        }
+                    }
+                });
+        };
+        if (args.name !== undefined) self.$loadData(args.name);
+    }]
+};
+
 
 hashMD5 = function(e) {
     function h(a, b) {
@@ -582,6 +875,233 @@ parseConfig = function(txt) {
 
     return o;
 };
+function pad(n, width, z) {
+    z = z || '0';
+    n = n + '';
+    return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+}
+function maxIP(ip, mask) {
+
+    if (mask === 128)
+        return ip;
+
+    var n;
+    var f = Math.ceil((128 - mask) / 4);
+    n = ip.substr(0, 32 - f);
+
+    var m;
+    switch(mask%4) {
+        case 3:
+            m = 1;
+            break; // 0001
+        case 2:
+            m = 3;
+            break; // 0011
+        case 1:
+            m = 7;
+            break; // 0111
+        case 0:
+            m = 15;
+            break; // 1111
+    }
+    n += (parseInt(ip.substr(32 - f, 1), 16) | m).toString(16);
+    n += (n.length === 32 ? '' : new Array(33 - n.length).join("f"));
+
+    return n;
+}
+function minIP(ip, mask) {
+
+    if (mask === 128)
+        return ip;
+
+    var n;
+    var f = Math.ceil((128 - mask) / 4);
+    n = ip.substr(0, 32 - f);
+    console.log(n);
+
+    var m;
+    switch(mask%4) {
+        case 3:
+            m = 14;
+            break; // 0001
+        case 2:
+            m = 12;
+            break; // 0011
+        case 1:
+            m = 8;
+            break; // 0111
+        case 0:
+            m = 0;
+            break; // 0111
+    }
+    n += (parseInt(ip.substr(32 - f, 1), 16) & m).toString(16);
+    n += (n.length === 32 ? '' : new Array(33 - n.length).join("0"));
+
+    return n;
+}
+function expandIP(n) {
+    var mask = 128;
+
+    // is in uri form
+    if (n.substr(0,9) === 'dn42.net.') {
+        n = n.substr(9);
+
+        if (n.indexOf("_") !== -1) {
+            n = n.split("_");
+            mask = parseInt(n[1]);
+            n = n[0];
+        }
+        n += (n.length === 32 ? '' : new Array(33 - n.length).join("0"));
+
+        return {min: minIP(n, mask), max: maxIP(n, mask), mask: mask};
+    }
+
+    // Is ipv4? change to ipv6 with short segment.
+    if (n.indexOf(":") === -1 && n.indexOf(".") !== -1) {
+        n = n.split(".");
+        n = parseInt(n[3]) + parseInt(n[2]) * 256 + parseInt(n[1]) * 65536 + parseInt(n[0]) * 16777216;
+        n = "::ffff:" + ((n >> 16) & 0xffff).toString(16) + ":" + (n & 0xffff).toString(16);
+    }
+
+    // Is ipv6 and has short segment ::
+    if (n.indexOf("::") !== -1) {
+        if (n.split("::").length !== 2) return false;
+        n = n.replace("::", new Array(11 - n.split(":").length).join(":"));
+        if (n.split(":").length !== 8) return false;
+    }
+
+    // Is ipv6 remove :'s and pad all segments to 4
+    if (n.indexOf(":") >= 0) {
+        n = n.split(":");
+        var a = [];
+        for (var i = 0; i < n.length; i++) {
+            a.push(pad(n[i], 4));
+        }
+        n = a.join("");
+    }
+
+    return {min: minIP(n, mask), max: maxIP(n, mask), mask: mask};
+}
+
+
 app.filter("txt", function() {
     return encodeConfig;
 });
+app.filter("regtxt", function() {
+    return function(d) {
+        if (d===undefined||d===null) return "";
+        var txt = "";
+        var max = 6;
+        for (var i=0; i<d.length; i++) {
+            if (max < d[i][0].length) max = d[i][0].length;
+        }
+        max++;
+
+        for (var i=0; i<d.length; i++) {
+            var ln = d[i][1].split('\n');
+
+            txt += d[i][0] + ":" + (new Array(max+1).join(" ")).slice(d[i][0].length-max) + ln[0] + "\n";
+            for (var j=1; j<ln.length; j++){
+                txt += (new Array(max+2).join(" ")) + ln[j] + "\n";
+            }
+        }
+
+        return txt;
+    };
+});
+app.filter("reglink", function() {
+    return function(d) {
+        var txt = "";
+        var max = 6;
+        for (var i=0; i<d.length; i++) {
+            if (max < d[i][0].length) max = d[i][0].length;
+        }
+        max++;
+
+        for (var i=0; i<d.length; i++) {
+            var ln = d[i][1].split('\n');
+
+            switch (d[i][0]) {
+                case 'sha512-pw':
+                    txt += d[i][0] + " : " + "****\n";
+                    break;
+
+                case 'admin-c':
+                case 'tech-c':
+                case 'mnt-by':
+                    txt += d[i][0] + ":" + (new Array(max + 1).join(" ")).slice(d[i][0].length - max) + "[" + d[i][1] + "](/registry/@name=" + d[i][1] + ")\n";
+                    break;
+
+                default:
+                    txt += d[i][0] + ":" + (new Array(max + 1).join(" ")).slice(d[i][0].length - max) + ln[0] + "\n";
+                    for (var j = 1; j < ln.length; j++) {
+                        txt += (new Array(max + 2).join(" ")) + ln[j] + "\n";
+                    }
+            }
+        }
+
+        return txt;
+    };
+});
+app.filter('regName', function() { return function(u) {
+    if (u === undefined) return null;
+
+    var text = ""+u;
+    if (u.substr(0,18) === 'dn42.organisation.')
+        return { type: 'org',     sub: null, name: '#' + u.substr(18),  text: text };
+    else if (u.substr(0,12) === 'dn42.person.')
+        return { type: 'person',  sub: null, name: '@' + u.substr(12), text: text };
+    else if (u.substr(0,12) === 'dn42.mntner.')
+        return { type: 'person',  sub: 'mnt', name: '@' + u.substr(12), text: text };
+//  else if (u.substr(0,13) === 'dn42.aut-num.')
+//      return { type: 'aut-num', sub: null, name: u.substr(13), text: text };
+    else if (u.substr(0,9) === 'dn42.dns.')
+        return { type: 'dns',     sub: null, name: u.substr(9).split(".").reverse().join("."), text: text };
+    else if (u.substr(0,9) === 'dn42.net.') {
+        u = u.substr(9);
+        if (u.substr(0,24) === '00000000000000000000ffff') {
+            // ipv4
+            var m, t;
+
+            if (u.indexOf('_')) {
+                t = u.split('_');
+                u = t.shift();
+                m = t.shift();
+                if (m !== undefined) m = parseInt(m,10) - 96;
+
+                t = t.shift();
+            }
+
+            u = u + new Array(9).join('0');
+            u = u.substr(24,8);
+
+            s = [];
+            for(var i=0; i<u.length; i+=2) {
+                s.push( parseInt(u.substr(i,2), 16) );
+            }
+
+            return { type: 'net', sub: (t!==undefined? t:'block'), name: s.join('.') + (m!==undefined? '/'+m:''), text: text };
+        } else {
+            // ipv6
+            if (u.indexOf('_')) {
+                t = u.split('_');
+                u = t.shift();
+                m = t.shift();
+                if (m !== undefined) m = parseInt(m,10);
+
+                t = t.shift();
+            }
+
+            s = [];
+            for(var i=0; i<u.length; i+=4) {
+                s.push(u.substr(i,4));
+            }
+
+            return { type: 'net', sub: (t!==undefined? t:'block'), name: s.join(':') + (s.length<8?"::":'') + (m!==undefined? '/'+m:''), text: text };
+        }
+
+    }
+
+    return { type:'root', sub: u.split(".")[1], name: u.split(".").slice(2).join("."), text: text };
+}});
+

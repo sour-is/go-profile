@@ -13,6 +13,7 @@ proxy /aspect   localhost:8060
 proxy /user     localhost:8060
 proxy /admin    localhost:8060
 proxy /register localhost:8060
+proxy /registry localhost:8060
 
 proxy /v1/      localhost:8060
 
