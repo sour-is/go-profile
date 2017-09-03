@@ -19,15 +19,9 @@ app.config(['$routeProvider', function(route) {
     when('/peer',                       PEERS).
     when('/peer/:id',                   PEERS).
 
-    when('/registry',                  REGISTRY).
-    when('/registry/type',           REGISTRY).
-    when('/registry/type/:type',    REGISTRY).
-
-
-    when('/registry/net',              NETBROWSE).
-    when('/registry/net/:net',         NETBROWSE).
-    when('/registry/obj',              OBJBROWSE).
-    when('/registry/obj/:name',        OBJBROWSE).
+    when('/registry',               REGISTRY).
+    when('/registry/:type',          REGISTRY).
+    when('/registry/:type/:name',    REGISTRY).
 
     otherwise({redirectTo:'/'});
 }]);
@@ -493,15 +487,40 @@ var PEERS = {
 
 var REGISTRY = {
     templateUrl: '/ui/registry.html',
-    controller: ['$scope', '$routeParams', '$sourisRemoteService', function(self, args, req) {
+    controller: ['$scope', '$routeParams', '$sourisRemoteService', '$location', function(self, args, req, loc) {
         self.$cfg.guest = true;
         self.$cfg.wideview = true;
+
+        self.tab = 0;
+        self.type = args.type;
+        if (!self.type) self.type = 'dns';
+        self._type = self.type;
+
+        self.name = args.name;
+        switch(args.type) {
+            case 'net':
+                self.net = true;
+                self.tab = 1;
+
+                break;
+            case 'related':
+                if (self.name === undefined) break;
+
+                self.rel = true;
+                self.tab = 2;
+
+                break;
+            default:
+                if (self.name)
+                    self.obj = true;
+        }
+
 
         self.related = [];
         self.list = [];
         self.data = [];
 
-        self.types = [{name:'dns'}, {name:'net'}, {name:'person'}, {name:'aut-num'},  {name:'organisation'}, {name:'mntner'}, {name:'as-set'}, {name:'as-block'}];
+        self.types = [{name:'dns'}, {name:'net'}, {name:'route'}, {name:'aut-num'},  {name:'organisation'}, {name:'mntner'}, {name:'as-set'}, {name:'as-block'}];
 
         self.$loadList = function(q){
             req('/v1/reg/reg.objects')
@@ -517,12 +536,8 @@ var REGISTRY = {
                         x.push(o);
                     }
                     self.list = x.sort(function(a,b){ return a.$uri === b.$uri ? 0 : (a.$uri > b.$uri ? 1 : -1); });
-                    self.$loadObj(x[0]._uri);
                 })
         };
-        args.type && self.$loadList(args.type);
-        args.type || self.$loadList(self.types[0].name);
-
 
         self.$loadRelated = function(name) {
             var a = {name: name, items: []};
@@ -541,19 +556,33 @@ var REGISTRY = {
                 });
         };
 
-        self.$loadObj = function(uri) {
+        self.$loadObj = function(uri, type) {
+            self.current = uri;
+
+            var w;
+            if (type) {
+                w = "@type=" + type + ",@name=" + uri;
+            } else {
+                w = "@uri=" + uri;
+            }
+
             req("/v1/reg/reg.objects")
-                .get({filter:"@uri=" + uri})
+                .get({filter:w})
                 .success(function(d) {
                     self.data = [];
-                    for (var i=0; i<d.length; i++)
-                        self.data.push(d[i].filter(function(e){return e[0][0] !== '@'; }));
-
-                    self.related = [];
-                    for (i=0; i<self.data[0].length; i++) {
-                        if (self.data[0][i][0] === 'mnt-by')
-                            self.$loadRelated(self.data[0][i][1]);
+                    for (var i=0; i<d.length; i++) {
+                        self.data.push(d[i].filter(function(e){
+                            if (e[0] === '@name') self._name = e[1];
+                            if (e[0] === '@type') self._type = e[1];
+                            return true; // e[0][0] !== '@';
+                        }));
                     }
+                    self.related = [];
+                    if (self.data.length > 0)
+                        for (i=0; i<self.data[0].length; i++) {
+                            if (self.data[0][i][0] === 'mnt-by')
+                                self.$loadRelated(self.data[0][i][1]);
+                        }
                 })
         };
 
@@ -580,8 +609,10 @@ var REGISTRY = {
                 });
         };
 
-        self.$loadNet = function(net) {
+        self.$loadNet = function(net, loadObj) {
             n = expandIP(net);
+
+            if (loadObj === undefined) loadObj = true;
 
             if (n===false) return;
 
@@ -605,18 +636,23 @@ var REGISTRY = {
                     x = x.sort(function(a,b){ return parseInt(a.$netlevel) - parseInt(b.$netlevel); });
 
                     self.parents = x.slice(0, x.length - 1);
-                    if (net.substr(0,9) !== 'dn42.net.') {
+                    if (net.substr(0,9) !== 'dn42.net') {
                         net = self.ip.$uri;
                     }
-                    self.$loadObj(net);
+                    loadObj && self.$loadObj(net);
 
                     self.$loadChildren(self.ip);
                 });
         };
 
-        args.net && self.$loadNet(args.net);
-        args.net || self.$loadNet("::");
+        self.type && self.$loadList(self.type);
+        self.type || self.$loadList(self.types[0].name);
 
+        if (self.net && self.name)
+            self.$loadNet(self.name, true);
+        else self.$loadNet("0.0.0.0", false);
+
+        if (self.obj && self.name) self.$loadObj(self.name, self.type);
 
     }]
 };
@@ -672,7 +708,7 @@ var NETBROWSE = {
             if (n===false) return;
 
             req("/v1/reg/reg.objects")
-                .get({filter: "@type=neq=route,@type=neq=route6,@netmin=le=" + n['min'] + ",@netmax=ge=" + n['max'] + ",@netmask=le=" + pad(n['mask'],3),
+                .get({filter: "@type=neq=route,@netmin=le=" + n['min'] + ",@netmax=ge=" + n['max'] + ",@netmask=le=" + pad(n['mask'],3),
                       fields: "@uri,@netmin,@netmax,@netlevel"})
                 .success(function(d){
                     var x = [];
@@ -942,6 +978,7 @@ function minIP(ip, mask) {
 function expandIP(n) {
     var mask = 128;
 
+
     // is in uri form
     if (n.substr(0,9) === 'dn42.net.') {
         n = n.substr(9);
@@ -954,10 +991,16 @@ function expandIP(n) {
         n += (n.length === 32 ? '' : new Array(33 - n.length).join("0"));
 
         return {min: minIP(n, mask), max: maxIP(n, mask), mask: mask};
+
+    } else if (n.indexOf("_") !== -1) {
+        n = n.split("_");
+        mask = parseInt(n[1]);
+        n = n[0];
     }
 
     // Is ipv4? change to ipv6 with short segment.
     if (n.indexOf(":") === -1 && n.indexOf(".") !== -1) {
+        if (mask !== 128) mask += 96;
         n = n.split(".");
         n = parseInt(n[3]) + parseInt(n[2]) * 256 + parseInt(n[1]) * 65536 + parseInt(n[0]) * 16777216;
         n = "::ffff:" + ((n >> 16) & 0xffff).toString(16) + ":" + (n & 0xffff).toString(16);
@@ -1094,7 +1137,10 @@ app.filter('regName', function() { return function(u) {
 
             s = [];
             for(var i=0; i<u.length; i+=4) {
-                s.push(u.substr(i,4));
+               var seg = u.substr(i,4);
+               if (seg.length < 4) seg += '000';
+               if (seg == '0000') seg = '';
+               s.push(seg.substr(0,4));
             }
 
             return { type: 'net', sub: (t!==undefined? t:'block'), name: s.join(':') + (s.length<8?"::":'') + (m!==undefined? '/'+m:''), text: text };

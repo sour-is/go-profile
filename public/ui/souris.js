@@ -1,5 +1,5 @@
 
-var AppConfig = {guest: false, wideview: false, aspect: 'default', theme: 'light'};
+var AppConfig = {guest: false, wideview: false, aspect: 'default', theme: 'dark'};
 
 var m = angular.module('souris-common', [ 'ngRoute', 'ngSanitize', 'ngCookies', 'ui.bootstrap']);
 m.config(['$locationProvider', function(l){l.html5Mode(true);}]);
@@ -170,7 +170,7 @@ m.directive('sourisSiteNav', function () {
                     if (theme === 'light') {
                         theme = 'dark';
                     } else {
-                        theme = 'light';
+                        theme = 'dark';
                     }
                     $scope.$root.$cfg.theme = theme;
                     store.set("theme", theme);

@@ -8,9 +8,14 @@ import (
 	"sour.is/x/dbm"
 	"sour.is/x/httpsrv"
 	"sour.is/x/ident"
+//	"sour.is/x/log"
 	"sour.is/x/profile/internal/model"
 	"strings"
 	"bytes"
+	"crypto/subtle"
+	"sour.is/x/profile/internal/profile"
+	"fmt"
+	"strconv"
 )
 
 func init() {
@@ -20,11 +25,13 @@ func init() {
 		{"getNode", "GET", "/v1/peers/peer.node({id})", getNode},
 		{"putNode", "PUT", "/v1/peers/peer.node({id})", putNode},
 		{"putNode", "DELETE", "/v1/peers/peer.node({id})", deleteNode},
+    })
 
-		{"getRegIndex", "GET", "/v1/reg/reg.index({name:[0-9A-Z\\-]+})", getRegIndex},
+    httpsrv.HttpRegister("registry", httpsrv.HttpRoutes{
 		{"getRegObject", "GET", "/v1/reg/reg.object({type},{name:[0-9a-zA-Z\\-\\.:_]+})", getRegObject},
+		{"putRegObject", "PUT", "/v1/reg/reg.object({type},{name:[0-9a-zA-Z\\-\\.:_]+})", putRegObject},
 		{"getRegObjects", "GET", "/v1/reg/reg.objects", getRegObjects},
-
+		{"postRegAuth", "POST", "/v1/reg/reg.auth", postRegAuth},
 	})
 }
 
@@ -175,36 +182,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	writeObject(w, http.StatusNoContent, node)
 }
 
-func getRegIndex(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
-	vars := mux.Vars(r)
-	id := vars["name"]
-
-	var err error
-	var lis []model.RegIndex
-/*
-	if !i.LoggedIn() {
-		writeMsg(w, http.StatusForbidden, "Access Denied")
-		return
-	}
-*/
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
-		lis, err = model.GetRegIndex(tx, id)
-		return
-	})
-	if err != nil {
-		writeMsg(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	var m [][]string
-	for _, n := range lis {
-		m = append(m, []string{n.Type, n.Name})
-	}
-
-	writeObject(w, http.StatusOK, m)
-}
-
-func getRegObject(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+func getRegObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	typeId := vars["type"]
 	name := vars["name"]
@@ -212,12 +190,6 @@ func getRegObject(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
 	var err error
 	var o model.RegObject
 
-/*
-	if !i.LoggedIn() {
-		writeMsg(w, http.StatusForbidden, "Access Denied")
-		return
-	}
-*/
 	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
 		o, err = model.GetRegObject(tx, typeId, name)
 		return
@@ -235,18 +207,188 @@ func getRegObject(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
 	writeObject(w, http.StatusOK, m)
 }
 
+func putRegObject(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	objType := vars["type"]
+	name := vars["name"]
 
-func getRegObjects(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+	var err error
+	var lis [][]string
+	if err = json.NewDecoder(r.Body).Decode(&lis); err != nil {
+		writeMsg(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var o model.RegObject
+	o.Type = objType
+	o.Name = name
+
+	meta := make(map[string]string)
+
+	for _, row := range lis {
+		if strings.HasPrefix( row[0], "@") {
+			meta[row[0]] = row[1]
+
+			continue
+		}
+		o.Items = append(o.Items, model.RegObjItem{Field: row[0], Value: row[1]})
+	}
+
+	meta["@type"] = objType
+	meta["@name"] = name
+
+	switch objType {
+	case "inetnum":
+		meta["@family"] = "ipv4"
+		meta["@type"] = "net"
+		min, max, mask, m := inetrange(name)
+
+		meta["@netmin"] = min
+		meta["@netmax"] = max
+		meta["@netmask"] = mask
+
+		o := m/4
+		if m%4!=0 {
+			o += 1
+		}
+		meta["@uri"] = strings.Join([]string{"dn42", "net", fmt.Sprintf("%s_%s_inetnum", min[:o], mask)},".")
+
+		break
+
+	case "route":
+		meta["@family"] = "ipv4"
+		meta["@type"] = "route"
+		min, max, mask, m := inetrange(name)
+
+		meta["@netmin"] = min    // "00000000000000000000ffff00000000"
+		meta["@netmax"] = max    // "00000000000000000000ffffffffffff"
+		meta["@netmask"] = mask  // "096"
+
+		o := m/4
+		if m%4!=0 {
+			o += 1
+		}
+		meta["@uri"] = strings.Join([]string{"dn42", "net", fmt.Sprintf("%s_%s_route", min[:o], mask)},".")
+
+		break
+
+	case "inet6num":
+		meta["@family"] = "ipv6"
+		meta["@type"] = "net"
+		min, max, mask, m := inet6range(name)
+
+		meta["@netmin"] = min
+		meta["@netmax"] = max
+		meta["@netmask"] = mask
+
+		o := m/4
+		if m%4!=0 {
+			o += 1
+		}
+		meta["@uri"] = strings.Join([]string{"dn42", "net", fmt.Sprintf("%s_%s_inetnum", min[:o], mask)},".")
+
+		break
+
+	case "route6":
+		meta["@family"] = "ipv6"
+		meta["@type"] = "route"
+
+		min, max, mask, m := inet6range(name)
+
+		meta["@netmin"] = min
+		meta["@netmax"] = max
+		meta["@netmask"] = mask
+
+		o := m/4
+		if m%4!=0 {
+			o += 1
+		}
+		meta["@uri"] = strings.Join([]string{"dn42", "net", fmt.Sprintf("%s_%s_route", min[:o], mask)},".")
+
+		break
+
+	case "dns":
+		parts := strings.Split(name, ".")
+		reverse(parts)
+		meta["@uri"] = strings.Join([]string{"dn42", objType, strings.Join(parts, ".")},".")
+
+		break
+
+	default:
+		meta["@uri"] = strings.Join([]string{"dn42", objType, name},".")
+	}
+
+	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+		if meta["@type"] == "net" || meta["@type"] == "route" {
+			meta["@netlevel"] = fmt.Sprintf("%03d", 1 + model.GetParentNetLevel(tx, meta["@netmin"], meta["@netmax"], meta["@type"]))
+		}
+
+		for name, value := range meta {
+			o.Items = append(o.Items, model.RegObjItem{Field: name, Value: value})
+		}
+
+		err = model.PutRegObject(tx, o)
+		if err != nil {
+			return
+		}
+
+		o, err = model.GetRegObject(tx, objType, name)
+		return
+	})
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	var m [][]string
+	for _, n := range o.Items {
+		m = append(m, []string{n.Field, n.Value})
+	}
+
+	writeObject(w, http.StatusOK, m)
+}
+
+
+func postRegAuth(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+    var creds profile.RegAuthCreds
+	if err = json.NewDecoder(r.Body).Decode(&creds); err != nil {
+		writeMsg(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var o model.RegObject
+	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+		o, err = model.GetRegAuth(tx, creds.Username)
+		return
+	})
+	if err != nil {
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	ok := false
+	_, check := profile.PassSiska(creds.Username, creds.Password, "")
+	for _, n := range o.Items {
+		if subtle.ConstantTimeCompare([]byte(check), []byte(n.Value)) == 1 {
+			ok = true
+		}
+	}
+
+    if ok {
+		writeText(w, http.StatusOK, "OK")
+    } else {
+		writeText(w, http.StatusForbidden, "Err")
+	}
+}
+
+
+func getRegObjects(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	var lis []model.RegObject
 
-	/*
-		if !i.LoggedIn() {
-			writeMsg(w, http.StatusForbidden, "Access Denied")
-			return
-		}
-	*/
 	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
 		lis, err = model.GetRegObjects(tx, r.URL.Query().Get("filter"), r.URL.Query().Get("fields"))
 		return
@@ -284,3 +426,108 @@ func getRegObjects(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
 		writeText(w, http.StatusOK, buf.String())
 	}
 }
+
+func reverse(ss []string) {
+	last := len(ss) - 1
+	for i := 0; i < len(ss)/2; i++ {
+		ss[i], ss[last-i] = ss[last-i], ss[i]
+	}
+}
+func expand_ipv6(addr string) string {
+	addr = strings.ToLower(addr)
+
+	if strings.Contains(addr, "::") {
+		if strings.Count(addr, "::") > 1 {
+			return ""
+		}
+		addr = strings.Replace(addr, "::", strings.Repeat(":", 9 - strings.Count(addr, ":")), 1)
+	}
+
+	if strings.Count(addr, ":") > 7 {
+		return ""
+	}
+
+	segs := []string{}
+	for _, i := range strings.Split(addr, ":") {
+		segs = append(segs, lpad(i,"0", 4))
+	}
+
+	return strings.Join(segs, "")
+}
+func lpad(s string,pad string, plength int)string{
+	for i:=len(s);i<plength;i++{
+		s=pad+s
+	}
+	return s
+}
+func toNum(addr string) (ip uint64) {
+	for i, s := range strings.SplitN(addr, ".", 4) {
+		n, _ := strconv.Atoi(s)
+		ip += uint64(n) * ipow(256, uint64(3 - i))
+	}
+
+	return
+}
+func ip4to6(ip uint64) string {
+	return expand_ipv6(fmt.Sprintf("::ffff:%04x:%04x", ip >> 16, ip & 0xffff))
+}
+func ipow(a, b uint64) uint64 {
+	var result uint64 = 1
+
+	for 0 != b {
+		if 0 != (b & 1) {
+			result *= a
+		}
+		b >>= 1
+		a *= a
+	}
+
+	return result
+}
+func inetrange(inet string) (min, max, mask string, m int) {
+	pfx := strings.Split(inet, "_")
+	m, _ = strconv.Atoi(pfx[1])
+    m += 96
+	mask = fmt.Sprintf("%03d", m)
+
+
+//	n := toNum(pfx[0]) & uint64(0xFFFFFFFF << 32 - m)
+	min = ip4to6(toNum(pfx[0]))
+
+//	x := n | uint64(0xFFFFFFFF >> 0 + m)
+//	max = ip4to6(x)
+	offset, _ := strconv.ParseUint(min[m/4:m/4+1],16, 64)
+
+	min = fmt.Sprintf("%s%x%s", min[:m/4], offset & (0xf0>>uint(m%4)), strings.Repeat("0", 31 - m/4))
+	max = fmt.Sprintf("%s%x%s", min[:m/4], offset | (0x0f>>uint(m%4)), strings.Repeat("f", 31 - m/4))
+
+	return
+}
+func inet6range(inet string) (min, max, mask string, m int) {
+	pfx := strings.Split(inet, "_")
+	m, _ = strconv.Atoi(pfx[1])
+	mask = fmt.Sprintf("%03d", 0 + m)
+
+	min = expand_ipv6(pfx[0])
+	offset, _ := strconv.ParseUint(min[m/4:m/4+1],16, 64)
+
+	min = fmt.Sprintf("%s%x%s", min[:m/4], offset & (0xf0>>uint(m%4)), strings.Repeat("0", 31 - m/4))
+	max = fmt.Sprintf("%s%x%s", min[:m/4], offset | (0x0f>>uint(m%4)), strings.Repeat("f", 31 - m/4))
+
+	return
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

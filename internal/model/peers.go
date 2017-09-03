@@ -171,41 +171,6 @@ func DeletePeerNode(tx *sql.Tx, id string) (err error) {
 }
 
 
-type RegIndex struct {
-	Type     string `json:"object_type"`
-	Name     string `json:"object_name"`
-	AssnType string `json:"assn_type"`
-	AssnName string `json:"assn_name"`
-}
-
-func GetRegIndex(tx *sql.Tx, owner string) (lis []RegIndex, err error) {
-	var rows *sql.Rows
-
-	s := sq.Select("DISTINCT `type`", "`name`").
-		From("`profile`.`reg_idx`").
-		Where(sq.Eq{"`assn_name`": owner})
-	rows, err = s.RunWith(tx).Query()
-
-	if err != nil {
-		log.Debug(err)
-		return
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var n RegIndex
-		if err = rows.Scan(&n.Type, &n.Name); err != nil {
-			log.Debug(err)
-			return
-		}
-
-		lis = append(lis, n)
-	}
-
-	return
-}
-
 type RegObject struct {
 	Type  string        `json:"type"`
 	Name  string        `json:"name"`
@@ -216,7 +181,6 @@ type RegObjItem struct {
 	Field string `json:"field"`
 	Value string `json:"value"`
 }
-
 
 func GetRegObject(tx *sql.Tx, objType, name string) (o RegObject, err error) {
 	var rows *sql.Rows
@@ -251,6 +215,36 @@ func GetRegObject(tx *sql.Tx, objType, name string) (o RegObject, err error) {
 
 	return
 }
+
+func PutRegObject(tx *sql.Tx, o RegObject) (err error) {
+	log.Debugf("DELETE: %s.%s", o.Type, o.Name)
+
+	s := sq.Delete("`profile`.`reg_values`").Where(sq.Eq{"`type`": o.Type,"`name`": o.Name})
+	_, err = s.RunWith(tx).Exec()
+	if err != nil {
+		log.Debug(err)
+		return
+	}
+
+	for _, row := range o.Items {
+		log.Debugf("ADD: %s.%s : %s = %s", o.Type, o.Name, row.Field, row.Value)
+
+		_, err = sq.Insert("`profile`.`reg_values`").
+			Columns("`type`", "`name`", "`field`", "`value`").
+			Values(o.Type, o.Name, row.Field, row.Value).
+			RunWith(tx).Exec()
+
+		if err != nil {
+			log.Debug(err)
+			return
+		}
+	}
+
+	return
+}
+
+
+
 
 func GetRegObjects(tx *sql.Tx, query, filter string) (olis []RegObject, err error) {
 	var rows *sql.Rows
@@ -297,8 +291,6 @@ func GetRegObjects(tx *sql.Tx, query, filter string) (olis []RegObject, err erro
 		}
 		s = s.JoinClause(q.Prefix("JOIN (").Suffix(fmt.Sprintf(") `r%03d` ON (`reg_values`.`type` = `r%03d`.`type` and `reg_values`.`name` = `r%03d`.`name`)", i, i, i)))
 	}
-
-
 
 	filter = strings.TrimSpace(filter)
 	if filter == "" {
@@ -355,6 +347,96 @@ func GetRegObjects(tx *sql.Tx, query, filter string) (olis []RegObject, err erro
 
 	return
 }
+
+func GetRegAuth(tx *sql.Tx, name string) (o RegObject, err error) {
+	var rows *sql.Rows
+
+	s := sq.Select("`name`", "`pw_type`", "`pw_value`").
+		From("`profile`.`reg_auth`").
+		Where(sq.Eq{"`name`": name})
+
+
+	rows, err = s.RunWith(tx).Query()
+
+	if err != nil {
+		log.Debug(err)
+		return
+	}
+
+	defer rows.Close()
+
+	o.Name = name
+
+	for rows.Next() {
+		var i RegObjItem
+
+		if err = rows.Scan(&o.Name, &i.Field, &i.Value); err != nil {
+			log.Debug(err)
+			return
+		}
+
+		log.Debugf("AUTH %s : %s\t%s", o.Name, i.Field, i.Value)
+		o.Items = append(o.Items, i)
+	}
+
+	return
+}
+
+func GetParentNetLevel(tx *sql.Tx, min, max, typ string) (level int) {
+
+	wmin := sq.And{sq.Eq{"`field`": "@netmin"}, sq.LtOrEq{"`value`": min}}
+	wmax := sq.And{sq.Eq{"`field`": "@netmax"}, sq.GtOrEq{"`value`": max}}
+
+	s := sq.Select("max(if(field='@netlevel',value,''))", "max(if(field='@netmin',value,''))", "max(if(field='@netmax',value,''))").
+	        From("`profile`.`reg_values`").
+	        Where(sq.Eq{"`field`": []string{"@netlevel", "@netmin", "@netmax"}}).GroupBy("`type`","`name`")
+
+	qmin := sq.Select("`reg_values`.`type`", "`reg_values`.`name`").From("`profile`.`reg_values`").Where(wmin)
+	s = s.JoinClause(qmin.Prefix("JOIN (").Suffix(") `qmax` USING (`type`, `name`)"))
+
+	qmax := sq.Select("`reg_values`.`type`", "`reg_values`.`name`").From("`profile`.`reg_values`").Where(wmax)
+	s = s.JoinClause(qmax.Prefix("JOIN (").Suffix(") `qmin` USING (`type`, `name`)"))
+
+	qtype := sq.Select("`reg_values`.`type`", "`reg_values`.`name`").From("`profile`.`reg_values`").Where(sq.Eq{"`field`": "@type", "`value`": "net"})
+	s = s.JoinClause(qtype.Prefix("JOIN (").Suffix(") `qtype` USING (`type`, `name`)"))
+
+
+	log.Debug(s.ToSql())
+
+	rows, err := s.RunWith(tx).Query()
+	if err != nil {
+		log.Debug(err)
+		return
+	}
+
+	defer rows.Close()
+
+	l := 0
+	vmax := ""
+	vmin := ""
+
+	log.Debugf("CHILD: %s\t%s\t%s", min, max, typ)
+
+	for rows.Next() {
+		if err = rows.Scan(&l, &vmin, &vmax); err != nil {
+			log.Debug(err)
+			return
+		}
+
+		log.Debugf("PARENT: %s\t%s\t%03d", vmin, vmax, l)
+
+		if min == vmin && max == vmax && typ == "net" {
+			continue
+		}
+		if level < l {
+			level = l
+		}
+	}
+
+	log.Debugf("NetLevel: %03d", level)
+	return
+}
+
 
 type Ops struct {
 	Left  string

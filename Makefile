@@ -28,4 +28,7 @@ $(SCHEMA_ASSET): $(SCHEMA_FILES)
 deploy: clean $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	cd debian && make && make deploy
 
-.PHONEY: clean deploy fmt
+run: $(BINARY)
+	./profile -vv serve
+
+.PHONEY: clean deploy fmt run

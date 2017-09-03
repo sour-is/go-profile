@@ -11,6 +11,16 @@
     font-family: Hack;
 }
 
+.sidebar li.list-group-item.active,.sidebar a.list-group-item.active {
+    color: #111;
+    background-color: greenyellow;
+}
+
+@media (min-width: 768px) {
+    .hide-sm { display: none !important; }
+}
+
+
 @media (min-width: 768px) {
     .sidebar {
         position:absolute;
@@ -45,15 +55,18 @@
 </style>
 
 <div class="row">
-    <div class="col-lg-3 sidebar" ng-init="type = 'dns'" >
-        <uib-tabset>
+    <div class="col-lg-3 sidebar">
+        <uib-tabset active="tab">
             <uib-tab heading="Directory">
 
             <select class="form-control" ng-model="type" ng-options="i.name as i.name for i in types" ng-change="$loadList(type)" placeholder="Select Type"></select>
             <input class="form-control" ng-model="filter" class="form-control" placeholder="Filter Results"/>
 
             <div class="list-group">
-                <a class="list-group-item" ng-repeat="n in list|orderBy:'_name'|filter:filter" ng-click="$loadObj(n._uri)">
+                <a class="list-group-item"
+                   ng-repeat="n in list|orderBy:'_name'|filter:filter"
+                   ng-class="{'active': n._uri == current}"
+                   ng-click="$loadObj(n._uri)">
                     {{(n._uri|regName).name}}
                 </a>
             </div>
@@ -68,7 +81,7 @@
                         <span class="input-group-btn"><button type="submit" class="btn btn-default">Load</button></span>
                     </div>
                 </form>
-
+                Jump: <a class="btn btn-xs" ng-click="$loadNet('0.0.0.0')">IPv4</a> <a class="btn btn-xs" ng-click="$loadNet('fd00::')">IPv6 ULA</a>
 
                 <div class="list-group">
                     <h5 ng-show="parents.length > 0">Parents</h5>
@@ -77,7 +90,10 @@
                     <h4>inetnum {{(ip.$uri|regName).name}}</h4>
 
                     <h5 ng-show="children.length > 0">children</h5>
-                    <a class="list-group-item" ng-repeat="n in children|orderBy:'+$netlevel'" ng-click="$loadNet(n.$uri)">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}})</b></a>
+                    <a class="list-group-item"
+                       ng-repeat="n in children|orderBy:'+$netlevel'"
+                       ng-class="{'active':n.$uri == current}"
+                       ng-click="$loadNet(n.$uri)">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}})</b></a>
                 </div>
 
             </uib-tab>
@@ -93,6 +109,7 @@
                 <h5 ng-repeat-start="r in related">{{r.name}}</h5>
                 <a ng-repeat-end class="list-group-item"
                    ng-repeat="n in r.items|filter:filter|orderBy:'uri'"
+                   ng-class="{'active':n.uri == current}"
                    ng-click="$loadObj(n.uri)" title="{{n.uri|regName}}">
                       {{(n.uri|regName).name}} <b>({{(n.uri|regName).sub|default:(n.uri|regName).type}})</b>
                 </a>
@@ -100,9 +117,13 @@
             </div>
 
             </uib-tab>
+
+            <uib-tab class="hide-sm" heading="Hide"></uib-tab>
         </uib-tabset>
     </div>
     <div class="col-lg-9 col-md-9 main">
+
+        LINK: <a ng-href="/registry/{{_type|default:type}}/{{_name}}">/registry/{{_type|default:type}}/{{_name}}</a>
 
     <div ng-repeat="d in data">
 
