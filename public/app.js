@@ -593,7 +593,7 @@ var REGISTRY = {
 
             req("/v1/reg/reg.objects")
                 .get({filter: "@netmin=ge=" + n['$netmin'] + ",@netmax=le=" + n['$netmax'] + ",@netlevel=eq=" + level,
-                    fields: "@uri,@netmin,@netmax,@netlevel"})
+                    fields: "@uri,@type,@netmin,@netmax,@netlevel"})
                 .success(function(d) {
                     var x = [];
                     for (var i=0; i<d.length; i++) {
@@ -609,17 +609,20 @@ var REGISTRY = {
                 });
         };
 
-        self.$loadNet = function(net, loadObj) {
+        self.$loadNet = function(type, net, loadObj) {
             n = expandIP(net);
+            self.ip = n;
 
+            if (type === undefined) type = 'net';
             if (loadObj === undefined) loadObj = true;
 
             if (n===false) return;
 
             req("/v1/reg/reg.objects")
-                .get({filter: "@type=neq=route,@type=neq=route6,@netmin=le=" + n['min'] + ",@netmax=ge=" + n['max'] + ",@netmask=le=" + pad(n['mask'],3),
-                    fields: "@uri,@netmin,@netmax,@netlevel"})
+                .get({filter: "@type=" + type + ",@netmin=le=" + n['min'] + ",@netmax=ge=" + n['max'] + ",@netmask=le=" + pad(n['mask'],3),
+                    fields: "@uri,@type,@netmin,@netmax,@netlevel"})
                 .success(function(d){
+                    if (d.length === 0) return;
                     var x = [];
                     var lvl = "";
                     for (var i=0; i<d.length; i++) {
@@ -649,8 +652,8 @@ var REGISTRY = {
         self.type || self.$loadList(self.types[0].name);
 
         if (self.net && self.name)
-            self.$loadNet(self.name, true);
-        else self.$loadNet("0.0.0.0", false);
+            self.$loadNet("net", self.name, true);
+        else self.$loadNet("net", "0.0.0.0", false);
 
         if (self.obj && self.name) self.$loadObj(self.name, self.type);
 

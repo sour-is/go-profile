@@ -1,0 +1,251 @@
+#!/usr/bin/env python
+
+import MySQLdb as mdb
+import glob
+import re
+import sys
+from uuid import uuid4
+
+
+def to_num(ip):
+    ip = [int(i) for i in ip.split('.')]
+    return ip[3] + ip[2] * 256 + ip[1] * 256 ** 2 + ip[0] * 256 ** 3
+
+
+def to_ip(num):
+    return '.'.join([str(i) for i in [num >> 24, (num >> 16) & 0xFF, (num >> 8) & 0xFF, num & 0xFF]])
+
+
+def expand_ipv6(addr):
+    addr = addr.lower()
+    if "::" in addr:
+        if addr.count('::') > 1:
+            return False
+        addr = addr.replace('::', ':' * (9 - addr.count(':')))
+    if addr.count(':') != 7:
+        return False
+    return ''.join((i.zfill(4) for i in addr.split(":")))
+
+
+def ip4to6(ip):
+    return "::ffff:%04x:%04x" % (ip >> 16, ip & 0xffff)
+
+
+def inetrange(inet):
+    ip, mask = inet.split('_')
+    mask = int(mask)
+    ip = to_num(ip) & (0xFFFFFFFF << 32 - mask)
+    ip6 = ip4to6(ip)
+    return inet6range("%s_%d" % (ip6, mask + 96))
+
+
+def inet6range(inet):
+    ip, mask = inet.split('_')
+    mask = int(mask)
+
+    ip = expand_ipv6(ip)
+
+    if mask == 128:
+        return ip, ip, mask
+
+    offset = int(ip[mask // 4], 16)
+    return "%s%x%s" % (
+        ip[:mask // 4],
+        offset & (0xf0 >> mask % 4),
+        "0" * (31 - mask // 4)
+    ), "%s%x%s" % (
+               ip[:mask // 4],
+               offset | (0xf >> mask % 4),
+               "f" * (31 - mask // 4)
+           ), mask
+
+
+def make_uri(a, b):
+    uri = ['dn42']
+
+    if a in ['inetnum', 'inet6num', 'route', 'route6']:
+        uri.append('net')
+
+        if a in ['inetnum', 'route']:
+            imin, _, mask = inetrange(b)
+        else:
+            imin, _, mask = inet6range(b)
+
+        segment = "%s_%d_%s" % (
+            imin[:(mask // 4) + (0 if mask % 4 == 0 else 1)],
+            mask,
+            'inetnum' if a in ['inetnum', 'inet6num'] else 'route'
+        )
+
+        if mask == 0:
+            segment = "0" + segment
+        uri.append(segment)
+
+    elif a == 'dns':
+        uri.append('dns')
+        uri.extend(b.split('.')[::-1])
+
+    else:
+        uri.append(a)
+        uri.append(b)
+
+    return '.'.join(uri)
+
+
+def in_net(ip, nets):
+    found = False
+    n = None
+    for n in nets:
+        if n[0] <= ip <= n[1]:
+            found = True
+            break
+
+    return found, n
+
+
+def make_tree(nets):
+    net = {('00000000000000000000000000000000', 'ffffffffffffffffffffffffffffffff', 0, 'ALLSPACE'): [0, []]}
+    for i in sorted(sorted(nets, key=lambda x: x[0]), key=lambda x: x[2]):
+        found = False
+        current = net[('00000000000000000000000000000000', 'ffffffffffffffffffffffffffffffff', 0, 'ALLSPACE')]
+
+        while True:
+
+            found, n = in_net(i[0], current[1])
+
+            if found:
+                current = net[n]
+                continue
+
+            else:
+                current[1].append(i)
+                net[i] = [current[0] + 1, []]
+                break
+
+    return net
+
+
+def find_tree(ip, nets):
+    net = ('00000000000000000000000000000000', 'ffffffffffffffffffffffffffffffff', 0, 'ALLSPACE')
+    current = nets[net]
+    while True:
+        found, net = in_net(ip[0], current[1])
+        if found:
+            if ip[0] == net[0] and ip[1] == net[1]: return True, current[0] + 2
+
+            current = nets[net]
+            continue
+
+        else:
+            return True, current[0] + 1
+
+
+def run():
+    lines = []
+
+    routes = []
+    inetnums = []
+
+    for g in ['as-block/*', 'as-set/*', 'aut-num/*', 'inet*num/*', 'mntner/*', 'organisation/*', 'person/*', 'route*/*',
+              'route-set/*', 'tinc-keyset/*', 'dns/*']:
+        for fn in glob.glob(g):
+
+            lineno = 1
+            u = str(uuid4())
+
+            lines.append([lineno, u, '@file', fn])
+            lineno += 1
+
+            a, b = fn.split('/')
+
+            with open(fn) as f:
+
+                if a in ['route', 'inetnum']:
+                    lines.append([lineno, u, '@type', 'net' if a == 'inetnum' else 'route'])
+                    lineno += 1
+                    lines.append([lineno, u, '@family', 'ipv6'])
+                    lineno += 1
+
+                elif a in ['route6', 'inet6num']:
+                    lines.append([lineno, u, '@type', 'net' if a == 'inet6num' else 'route'])
+                    lineno += 1
+                    lines.append([lineno, u, '@family', 'ipv6'])
+                    lineno += 1
+
+                else:
+                    lines.append([lineno, u, '@type', a])
+                    lineno += 1
+
+                lines.append([lineno, u, '@name', b])
+                lineno += 1
+
+                lines.append([lineno, u, '@uri', make_uri(a, b)])
+                lineno += 1
+
+                if a in ['route', 'route6', 'inetnum', 'inet6num']:
+
+                    if a in ['route', 'inetnum']:
+                        min, max, mask = inetrange(b)
+                    else:
+                        min, max, mask = inet6range(b)
+
+                    if a in ['route', 'route6']:
+                        routes.append((min, max, mask, u))
+                    else:
+                        inetnums.append((min, max, mask, u))
+
+                    lines.append([lineno, u, '@netmin', min])
+                    lineno += 1
+                    lines.append([lineno, u, '@netmax', max])
+                    lineno += 1
+                    lines.append([lineno, u, '@netmask', "%03d" % mask])
+                    lineno += 1
+
+                lineno = 100
+                for i in f.readlines():
+                    if re.match(r'[ \t]', i):
+                        lines[-1][3] += "\n" + i.strip()
+                    else:
+                        i = i.split(":")
+                        if len(i) < 2: continue
+                        lines.append([lineno, u, i[0].strip(), ':'.join(i[1:]).strip()])
+                        lineno += 1
+
+    net_tree = make_tree(inetnums)
+
+    for k, v in sorted(sorted(net_tree.items(), key=lambda x: x[0]), key=lambda x: x[1][0]):
+        if k[3] == 'ALLSPACE': continue
+
+        lines.append([45, k[3], '@netlevel', "%03d" % v[0]])
+
+    # route_tree = make_tree(routes)
+
+    for k in sorted(routes, key=lambda x: x[0]):
+
+        found, level = find_tree(k, net_tree)
+
+        lines.append([47,  k[3], '@netlevel', "%03d" % (level)])
+
+    try:
+        con = mdb.connect(read_default_file='~/.my.cnf', charset='utf8')
+
+        con.begin()
+        cur = con.cursor()
+
+        for row in lines:
+            cur.execute('INSERT\n'
+                        '   INTO `profile`.`reg_values`\n'
+                        '    SET `seq`   = %s,\n'
+                        '        `uuid`  = %s,\n'
+                        '        `field` = %s,\n'
+                        '        `value` = %s\n', row)
+        con.commit()
+
+    except mdb.Error, e:
+        print "Error %d: %s" % (e.args[0], e.args[1])
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+
+    run()

@@ -1,0 +1,12 @@
+#!/bin/bash
+set -uef pipefail
+
+BASE=$(readlink -f "$0")
+BASE=$(dirname "$BASE")
+
+#cd /opt/web/pub/mtn.dn42/net.dn42.registry/data
+cd $BASE/data
+
+$BASE/procRegistry
+
+mysql --execute="SELECT @lastUpdate := MAX(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(updateOn)/300)*300)) lastUpdate FROM profile.reg_values; DELETE FROM profile.reg_values WHERE updateOn < @lastUpdate"

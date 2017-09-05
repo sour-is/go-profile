@@ -28,8 +28,8 @@ func init() {
     })
 
     httpsrv.HttpRegister("registry", httpsrv.HttpRoutes{
-		{"getRegObject", "GET", "/v1/reg/reg.object({type},{name:[0-9a-zA-Z\\-\\.:_]+})", getRegObject},
-		{"putRegObject", "PUT", "/v1/reg/reg.object({type},{name:[0-9a-zA-Z\\-\\.:_]+})", putRegObject},
+		{"getRegObject", "GET", "/v1/reg/reg.object({name:[0-9a-zA-Z\\-]+})", getRegObject},
+		{"putRegObject", "PUT", "/v1/reg/reg.object({name:[0-9a-zA-Z\\-]+})", putRegObject},
 		{"getRegObjects", "GET", "/v1/reg/reg.objects", getRegObjects},
 		{"postRegAuth", "POST", "/v1/reg/reg.auth", postRegAuth},
 	})
@@ -184,14 +184,13 @@ func deleteNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 func getRegObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	typeId := vars["type"]
 	name := vars["name"]
 
 	var err error
 	var o model.RegObject
 
 	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
-		o, err = model.GetRegObject(tx, typeId, name)
+		o, err = model.GetRegObject(tx, name)
 		return
 	})
 	if err != nil {
@@ -209,8 +208,7 @@ func getRegObject(w http.ResponseWriter, r *http.Request) {
 
 func putRegObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	objType := vars["type"]
-	name := vars["name"]
+	uuid := vars["name"]
 
 	var err error
 	var lis [][]string
@@ -220,8 +218,6 @@ func putRegObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var o model.RegObject
-	o.Type = objType
-	o.Name = name
 
 	meta := make(map[string]string)
 
@@ -234,8 +230,10 @@ func putRegObject(w http.ResponseWriter, r *http.Request) {
 		o.Items = append(o.Items, model.RegObjItem{Field: row[0], Value: row[1]})
 	}
 
-	meta["@type"] = objType
-	meta["@name"] = name
+//	meta["@type"] = objType
+//	meta["@name"] = name
+	objType := meta["@type"]
+	name := meta["@name"]
 
 	switch objType {
 	case "inetnum":
@@ -321,6 +319,9 @@ func putRegObject(w http.ResponseWriter, r *http.Request) {
 	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
 		if meta["@type"] == "net" || meta["@type"] == "route" {
 			meta["@netlevel"] = fmt.Sprintf("%03d", 1 + model.GetParentNetLevel(tx, meta["@netmin"], meta["@netmax"], meta["@type"]))
+
+			model.MoveChildNetLevel(tx, meta["@netmin"], meta["@netmax"], 1)
+			model.MoveChildNetLevel(tx, meta["@netmin"], meta["@netmax"], -1)
 		}
 
 		for name, value := range meta {
@@ -332,7 +333,7 @@ func putRegObject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		o, err = model.GetRegObject(tx, objType, name)
+		o, err = model.GetRegObject(tx, uuid)
 		return
 	})
 	if err != nil {
@@ -382,8 +383,6 @@ func postRegAuth(w http.ResponseWriter, r *http.Request) {
 		writeText(w, http.StatusForbidden, "Err")
 	}
 }
-
-
 func getRegObjects(w http.ResponseWriter, r *http.Request) {
 
 	var err error
@@ -489,13 +488,8 @@ func inetrange(inet string) (min, max, mask string, m int) {
 	m, _ = strconv.Atoi(pfx[1])
     m += 96
 	mask = fmt.Sprintf("%03d", m)
-
-
-//	n := toNum(pfx[0]) & uint64(0xFFFFFFFF << 32 - m)
 	min = ip4to6(toNum(pfx[0]))
 
-//	x := n | uint64(0xFFFFFFFF >> 0 + m)
-//	max = ip4to6(x)
 	offset, _ := strconv.ParseUint(min[m/4:m/4+1],16, 64)
 
 	min = fmt.Sprintf("%s%x%s", min[:m/4], offset & (0xf0>>uint(m%4)), strings.Repeat("0", 31 - m/4))

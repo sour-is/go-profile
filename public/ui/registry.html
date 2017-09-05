@@ -34,6 +34,7 @@
     .main {
         position: absolute;
         margin-left: 25vw;
+        overflow: auto;
     }
 }
 @media (min-width: 992px) {
@@ -81,11 +82,11 @@
                         <span class="input-group-btn"><button type="submit" class="btn btn-default">Load</button></span>
                     </div>
                 </form>
-                Jump: <a class="btn btn-xs" ng-click="$loadNet('0.0.0.0')">IPv4</a> <a class="btn btn-xs" ng-click="$loadNet('fd00::')">IPv6 ULA</a>
+                Jump: <a class="btn btn-xs" ng-click="$loadNet('net','0.0.0.0')">IPv4</a> <a class="btn btn-xs" ng-click="$loadNet('net','fd00::')">IPv6 ULA</a>
 
                 <div class="list-group">
                     <h5 ng-show="parents.length > 0">Parents</h5>
-                    <a class="list-group-item" ng-repeat="n in parents" ng-click="$loadNet(n.$uri)">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}})</b></a>
+                    <a class="list-group-item" ng-repeat="n in parents" ng-click="$loadNet(n.$type,n.$uri)">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}}) {{n.$type}}</b></a>
 
                     <h4>inetnum {{(ip.$uri|regName).name}}</h4>
 
@@ -93,7 +94,7 @@
                     <a class="list-group-item"
                        ng-repeat="n in children|orderBy:'+$netlevel'"
                        ng-class="{'active':n.$uri == current}"
-                       ng-click="$loadNet(n.$uri)">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}})</b></a>
+                       ng-click="$loadNet(n.$type, n.$uri)">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}}) {{n.$type}}</b></a>
                 </div>
 
             </uib-tab>
