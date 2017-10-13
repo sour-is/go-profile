@@ -1,5 +1,8 @@
 <style>
 
+.sidebar .list-group {
+    font-size: 75%;
+}
 .sidebar .list-group-item {
     padding: 2px;
     background:#111;
@@ -56,7 +59,7 @@
 </style>
 
 <div class="row">
-    <div class="col-lg-3 sidebar">
+    <div class="col-lg-3 col-sm-3 sidebar">
         <uib-tabset active="tab">
             <uib-tab heading="Directory">
 
@@ -76,7 +79,7 @@
 
             <uib-tab heading="Network">
 
-                <form name="SearchIP" ng-submit="$loadNet(query)">
+                <form name="SearchIP" ng-submit="$loadNet('inetnum',query)">
                     <div class="input-group">
                         <input ng-model="query" class="form-control" placeholder="172.2x.x.x or fd00::"/>
                         <span class="input-group-btn"><button type="submit" class="btn btn-default">Load</button></span>
@@ -86,15 +89,15 @@
 
                 <div class="list-group">
                     <h5 ng-show="parents.length > 0">Parents</h5>
-                    <a class="list-group-item" ng-repeat="n in parents" ng-click="$loadNet(n.$type,n.$uri)">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}}) {{n.$type}}</b></a>
+                    <a class="list-group-item" ng-repeat="n in parents|orderBy:'+_netlevel'" ng-click="$loadNet(n._type, n._uri)">{{(n._uri|regName).name}} <b>({{(n._uri|regName).sub}})</b></a>
 
-                    <h4>inetnum {{(ip.$uri|regName).name}}</h4>
+                    <h4>{{(ip._uri|regName).sub}} {{(ip._uri|regName).name}}</h4>
 
                     <h5 ng-show="children.length > 0">children</h5>
                     <a class="list-group-item"
-                       ng-repeat="n in children|orderBy:'+$netlevel'"
-                       ng-class="{'active':n.$uri == current}"
-                       ng-click="$loadNet(n.$type, n.$uri)">{{(n.$uri|regName).name}} <b>({{(n.$uri|regName).sub}}) {{n.$type}}</b></a>
+                       ng-repeat="n in children|orderBy:'+_netlevel'"
+                       ng-class="{'active':n._uri == current}"
+                       ng-click="$loadNet(n._type, n._uri)">{{(n._uri|regName).name}} <b>({{(n._uri|regName).sub}}) </b></a>
                 </div>
 
             </uib-tab>
@@ -107,12 +110,12 @@
 
             <div class="list-group">
 
-                <h5 ng-repeat-start="r in related">{{r.name}}</h5>
+                <h5 ng-repeat-start="r in related">{{r.  name}}</h5>
                 <a ng-repeat-end class="list-group-item"
-                   ng-repeat="n in r.items|filter:filter|orderBy:'uri'"
-                   ng-class="{'active':n.uri == current}"
-                   ng-click="$loadObj(n.uri)" title="{{n.uri|regName}}">
-                      {{(n.uri|regName).name}} <b>({{(n.uri|regName).sub|default:(n.uri|regName).type}})</b>
+                   ng-repeat="n in r.items|filter:filter|orderBy:'_uri'"
+                   ng-class="{'active':n._uri == current}"
+                   ng-click="$loadObj(n._uri)" title="{{n._uri|regName}}">
+                      {{(n._uri|regName).name}} <b>({{(n._uri|regName).sub|default:(n._uri|regName).type}})</b>
                 </a>
 
             </div>
@@ -122,30 +125,43 @@
             <uib-tab class="hide-sm" heading="Hide"></uib-tab>
         </uib-tabset>
     </div>
-    <div class="col-lg-9 col-md-9 main">
+    <div class="col-lg-9 col-sm-9 main">
 
-        LINK: <a ng-href="/registry/{{_type|default:type}}/{{_name}}">/registry/{{_type|default:type}}/{{_name}}</a>
+        LINK: <span ng-switch="_type">
+              <a ng-switch-when="route" ng-href="/registry/{{_type|default:type}}/{{_uri}}">/registry/{{_type|default:type}}/{{_uri}}</a>
+              <a ng-switch-when="net" ng-href="/registry/{{_type|default:type}}/{{_uri}}">/registry/{{_type|default:type}}/{{_uri}}</a>
+              <a ng-switch-default ng-href="/registry/{{_type|default:type}}/{{_name}}">/registry/{{_type|default:type}}/{{_name}}</a>
+              </span>
 
-    <div ng-repeat="d in data">
+        <uib-tabset active="$root.maintab">
+            <uib-tab heading="Raw Text">
+                <pre>{{data|regtxt}}</pre>
+            </uib-tab>
 
-        <uib-tabset>
-        <uib-tab heading="Table View">
-            <table class="table table-condensed">
-                <tbody>
-                <tr ng-repeat="l in d">
-                    <td style="padding:0px; width:140px; vertical-align: top">{{l[0]}}</td>
-                    <td style="padding:0px"><pre style="background-color: #444; color: white; margin:0">{{l[1]}}</pre></td>
-                </tr>
-                </tbody>
-            </table>
-        </uib-tab>
-        <uib-tab heading="Raw Text">
-            <pre ng-repeat="d in data">{{d|regtxt}}</pre>
-        </uib-tab>
+            <uib-tab heading="Edit" select="$root.txt = (data|regtxt:true)">
+                <textarea rows=20 class="form-control" ng-model="txt"></textarea>
+
+                <input class="form-control" ng-model="mntner"/>
+                <input class="form-control" type="password" ng-model="password"/>
+
+                <button class="btn  btn-default" ng-click="$saveObj(_uri, txt, mntner, password); $root.maintab = 0">Save</button>
+                <button class="btn  btn-danger" ng-click="$deleteObj(_uri, txt, mntner, password); $root.maintab = 0">Delete</button>
+
+            </uib-tab>
+
+            <uib-tab heading="Table View">
+
+                <table class="table table-condensed">
+                    <tbody>
+                    <tr ng-repeat="l in data">
+                        <td style="padding:0px; width:140px; vertical-align: top">{{l[0]}}</td>
+                        <td style="padding:0px"><pre style="background-color: #444; color: white; margin:0">{{l[1]}}</pre></td>
+                    </tr>
+                    </tbody>
+                </table>
+
+            </uib-tab>
         </uib-tabset>
-
-    </div>
-
 
     </div>
 </div>

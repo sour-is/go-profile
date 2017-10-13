@@ -19,7 +19,7 @@ app.config(['$routeProvider', function(route) {
     when('/peer',                       PEERS).
     when('/peer/:id',                   PEERS).
 
-    when('/registry',               REGISTRY).
+    when('/registry',                REGISTRY).
     when('/registry/:type',          REGISTRY).
     when('/registry/:type/:name',    REGISTRY).
 
@@ -503,6 +503,13 @@ var REGISTRY = {
                 self.tab = 1;
 
                 break;
+
+            case 'route':
+                self.route = true;
+                self.tab = 1;
+
+                break;
+
             case 'related':
                 if (self.name === undefined) break;
 
@@ -510,6 +517,7 @@ var REGISTRY = {
                 self.tab = 2;
 
                 break;
+
             default:
                 if (self.name)
                     self.obj = true;
@@ -519,12 +527,22 @@ var REGISTRY = {
         self.related = [];
         self.list = [];
         self.data = [];
+        self.txt = "";
 
-        self.types = [{name:'dns'}, {name:'net'}, {name:'route'}, {name:'aut-num'},  {name:'organisation'}, {name:'mntner'}, {name:'as-set'}, {name:'as-block'}];
+        self.types = [{name:'dns'},
+                      {name:'net'},
+                      {name:'route'},
+                      {name:'aut-num'},
+                      {name: 'person'},
+                      {name:'organisation'},
+                      {name:'mntner'},
+                      {name:'as-set'},
+                      {name:'as-block'},
+                      {name:'schema'}];
 
         self.$loadList = function(q){
             req('/v1/reg/reg.objects')
-                .get({filter: '@type=='+ q, fields: "@uri,@name"})
+                .get({filter: '@deleted=nkey=XX,@type=='+ q, fields: "@uri,@name,@updated,@deleted"})
                 .success(function(d){
 
                     var x = [];
@@ -548,7 +566,7 @@ var REGISTRY = {
                     for (var i=0; i<d.length; i++) {
                         var x = {};
                         for (var j = 0; j < d[i].length; j++)
-                            x[d[i][j][0].substr(1)] = d[i][j][1];
+                            x[d[i][j][0].replace("@","_")] = d[i][j][1];
 
                         a.items.push(x);
                     }
@@ -566,44 +584,82 @@ var REGISTRY = {
                 w = "@uri=" + uri;
             }
 
+            console.log("load: " + w);
+
             req("/v1/reg/reg.objects")
                 .get({filter:w})
                 .success(function(d) {
-                    self.data = [];
+
+                    self.related = [];
                     for (var i=0; i<d.length; i++) {
-                        self.data.push(d[i].filter(function(e){
+
+                        self.data = d[i].filter(function(e){
+                            if (e[0] === '@uri') self._uri = e[1];
                             if (e[0] === '@name') self._name = e[1];
                             if (e[0] === '@type') self._type = e[1];
+
+                            if (e[0] === 'mnt-by')
+                                self.$loadRelated(e[1]);
+
                             return true; // e[0][0] !== '@';
-                        }));
+                        });
+
+
+
+                        break;
                     }
-                    self.related = [];
-                    if (self.data.length > 0)
-                        for (i=0; i<self.data[0].length; i++) {
-                            if (self.data[0][i][0] === 'mnt-by')
-                                self.$loadRelated(self.data[0][i][1]);
-                        }
+
+                    self.txt = encodeRegistry(self.data, true);
                 })
+        };
+
+        self.$saveObj = function(uri, txt){
+            var o = parseConfigArray(txt);
+            console.log(o);
+
+            req("/v1/reg/reg.object(:uri)")
+                .put({uri:uri}, o)
+                .success(function(d) {
+                    console.log(d);
+
+                    self.txt = encodeRegistry(self.data, true);
+
+                    self.data = d.filter(function (e) {
+                        if (e[0] === '@uri') self._uri = e[1];
+                        if (e[0] === '@name') self._name = e[1];
+                        if (e[0] === '@type') self._type = e[1];
+                        return true; // e[0][0] !== '@';
+                    });
+                });
+        };
+
+        self.$deleteObj = function(uri){
+            req("/v1/reg/reg.object(:uri)")
+                .delete({uri:uri})
+                .success(function(d) {
+                    console.log(d);
+                    self.$loadObj(uri);
+                });
         };
 
         self.$loadChildren = function(n) {
             if (n === undefined) return;
-            var level = parseInt(n['$netlevel']) + 1;
+            var level = parseInt(n['_netlevel']) + 1;
             level = pad(level, 3);
 
             req("/v1/reg/reg.objects")
-                .get({filter: "@netmin=ge=" + n['$netmin'] + ",@netmax=le=" + n['$netmax'] + ",@netlevel=eq=" + level,
+                .get({filter: "@netmin=ge=" + n['_netmin'] + ",@netmax=le=" + n['_netmax'] + ",@netlevel=eq=" + level,
                     fields: "@uri,@type,@netmin,@netmax,@netlevel"})
                 .success(function(d) {
                     var x = [];
                     for (var i=0; i<d.length; i++) {
                         var o = {};
                         for (var j=0; j<d[i].length; j++) {
-                            o[d[i][j][0].replace("@","\$")] = d[i][j][1];
+                            o[d[i][j][0].replace("@","_")] = d[i][j][1];
                         }
                         x.push(o);
                     }
-                    x = x.sort(function(a,b){ return a.$uri === b.$uri ? 0 : (a.$uri > b.$uri ? 1 : -1); });
+                    x = x.sort(function(a,b){ return a._uri === b._uri ? 0 : (a._uri > b._uri ? 1 : -1); });
 
                     self.children = x;
                 });
@@ -619,7 +675,7 @@ var REGISTRY = {
             if (n===false) return;
 
             req("/v1/reg/reg.objects")
-                .get({filter: "@type=" + type + ",@netmin=le=" + n['min'] + ",@netmax=ge=" + n['max'] + ",@netmask=le=" + pad(n['mask'],3),
+                .get({filter: (type==="net"?"@type=net,":"") + "@netmin=le=" + n['min'] + ",@netmax=ge=" + n['max'] + ",@netmask=le=" + pad(n['mask'],3),
                     fields: "@uri,@type,@netmin,@netmax,@netlevel"})
                 .success(function(d){
                     if (d.length === 0) return;
@@ -628,19 +684,19 @@ var REGISTRY = {
                     for (var i=0; i<d.length; i++) {
                         var o = {};
                         for (var j=0; j<d[i].length; j++) {
-                            o[d[i][j][0].replace("@","\$")] = d[i][j][1];
+                            o[d[i][j][0].replace("@","_")] = d[i][j][1];
                         }
                         x.push(o);
-                        if (lvl < o.$netlevel) {
-                            lvl = o.$netlevel;
+                        if (lvl < o._netlevel) {
+                            lvl = o._netlevel;
                             self.ip = o;
                         }
                     }
-                    x = x.sort(function(a,b){ return parseInt(a.$netlevel) - parseInt(b.$netlevel); });
+                    x = x.sort(function(a,b){ return parseInt(a._netlevel) - parseInt(b._netlevel); });
 
                     self.parents = x.slice(0, x.length - 1);
                     if (net.substr(0,9) !== 'dn42.net') {
-                        net = self.ip.$uri;
+                        net = self.ip._uri;
                     }
                     loadObj && self.$loadObj(net);
 
@@ -651,8 +707,12 @@ var REGISTRY = {
         self.type && self.$loadList(self.type);
         self.type || self.$loadList(self.types[0].name);
 
-        if (self.net && self.name)
+        if (self.net && self.name) {
             self.$loadNet("net", self.name, true);
+        }
+        else if (self.route && self.name) {
+            self.$loadNet("route", self.name, true);
+        }
         else self.$loadNet("net", "0.0.0.0", false);
 
         if (self.obj && self.name) self.$loadObj(self.name, self.type);
@@ -804,7 +864,7 @@ var OBJBROWSE = {
 };
 
 
-hashMD5 = function(e) {
+var hashMD5 = function(e) {
     function h(a, b) {
         var c, d, e, f, g;
         e = a & 2147483648;
@@ -883,7 +943,30 @@ encodeConfig = function(d) {
 
     return txt;
 };
-parseConfig = function(txt) {
+
+var encodeRegistry = function(d,f) {
+    if (f===undefined) f=false;
+    if (d===undefined||d===null) return "";
+    var txt = "";
+    var max = 6;
+    var i;
+    for (i=0; i<d.length; i++) {
+        if (max < d[i][0].length) max = d[i][0].length;
+    }
+    max++;
+
+    for (i=0; i<d.length; i++) {
+        var ln = d[i][1].split('\n');
+        if (f&&d[i][0].substr(0,1) === '@') continue;
+        txt += d[i][0] + ":" + (new Array(max+1).join(" ")).slice(d[i][0].length-max) + ln[0] + "\n";
+        for (var j=1; j<ln.length; j++){
+            txt += (new Array(max+2).join(" ")) + ln[j] + "\n";
+        }
+    }
+
+    return txt;
+};
+var parseConfig = function(txt) {
     txt = txt.split("\n");
     var k;
     var s;
@@ -891,7 +974,8 @@ parseConfig = function(txt) {
     for(var i=0; i<txt.length; i++) {
         if (txt[i] === "") continue;
 
-        var c = -1;
+        var c;
+        c = -1;
         s = txt[i].split(/:[\s+]?(.+)?/, 2);
         k = s[0];
         if (s[1] === undefined)
@@ -903,7 +987,7 @@ parseConfig = function(txt) {
         if (txt[i+1].substr(0,1) !== " ") continue;
         i++;
 
-        var c = c === -1 && txt[i].search(/\S/);
+        c = c === -1 && txt[i].search(/\S/);
         for (;i<txt.length; i++) {
             o[k] += "\n" + txt[i].substr(c);
 
@@ -914,6 +998,42 @@ parseConfig = function(txt) {
 
     return o;
 };
+var parseConfigArray = function(txt) {
+    txt = txt.split("\n");
+    var k, v;
+    var s;
+    var o = [];
+    for(var i=0; i<txt.length; i++) {
+        if (txt[i] === "") continue;
+
+        var c;
+        c = -1;
+
+        s = txt[i].split(/:[\s+]?(.+)?/, 2);
+        k = s[0];
+        if (s[1] === undefined)
+            v = "";
+        else
+            v = s[1].trim();
+
+        if (i+1>=txt.length) { o.push([k, v]); continue; }
+        if (txt[i+1].substr(0,1) !== " ") { o.push([k, v]); continue; }
+        i++;
+
+        c = c === -1 && txt[i].search(/\S/);
+        for (;i<txt.length; i++) {
+            v += "\n" + txt[i].substr(c);
+
+            if (i+1>=txt.length) break;
+            if (txt[i+1].substr(0,1) !== " ") break;
+        }
+
+        o.push([k, v]);
+    }
+
+    return o;
+};
+
 function pad(n, width, z) {
     z = z || '0';
     n = n + '';
@@ -956,7 +1076,6 @@ function minIP(ip, mask) {
     var n;
     var f = Math.ceil((128 - mask) / 4);
     n = ip.substr(0, 32 - f);
-    console.log(n);
 
     var m;
     switch(mask%4) {
@@ -980,7 +1099,6 @@ function minIP(ip, mask) {
 }
 function expandIP(n) {
     var mask = 128;
-
 
     // is in uri form
     if (n.substr(0,9) === 'dn42.net.') {
@@ -1034,26 +1152,7 @@ app.filter("txt", function() {
     return encodeConfig;
 });
 app.filter("regtxt", function() {
-    return function(d) {
-        if (d===undefined||d===null) return "";
-        var txt = "";
-        var max = 6;
-        for (var i=0; i<d.length; i++) {
-            if (max < d[i][0].length) max = d[i][0].length;
-        }
-        max++;
-
-        for (var i=0; i<d.length; i++) {
-            var ln = d[i][1].split('\n');
-
-            txt += d[i][0] + ":" + (new Array(max+1).join(" ")).slice(d[i][0].length-max) + ln[0] + "\n";
-            for (var j=1; j<ln.length; j++){
-                txt += (new Array(max+2).join(" ")) + ln[j] + "\n";
-            }
-        }
-
-        return txt;
-    };
+    return encodeRegistry;
 });
 app.filter("reglink", function() {
     return function(d) {
@@ -1142,7 +1241,8 @@ app.filter('regName', function() { return function(u) {
             for(var i=0; i<u.length; i+=4) {
                var seg = u.substr(i,4);
                if (seg.length < 4) seg += '000';
-               if (seg == '0000') seg = '';
+               if (i!==0 && seg === '0000') seg = '';
+               if (i>0 && seg === '') continue;
                s.push(seg.substr(0,4));
             }
 
@@ -1153,4 +1253,18 @@ app.filter('regName', function() { return function(u) {
 
     return { type:'root', sub: u.split(".")[1], name: u.split(".").slice(2).join("."), text: text };
 }});
+m.factory('$registryRemoteService', ['$remoteService',
+    function(req, user, pass){
+        return function(url) {
+            var fn = function(config) {
+                if (config.headers === undefined) config.headers = {};
+                config.headers['authorization'] = "registry " + user + " " + atob(pass);
+
+                return config;
+            };
+
+            return req(url, fn);
+        };
+    }
+]);
 

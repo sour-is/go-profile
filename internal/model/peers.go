@@ -181,6 +181,39 @@ type RegObjItem struct {
 	Value string `json:"value"`
 }
 
+
+func HasRegObject(tx *sql.Tx, uuid string) (ok bool, err error) {
+	var rows *sql.Rows
+
+	s := sq.Select("DISTINCT `uuid`").
+		From("`profile`.`reg_values`").
+		Where(sq.Eq{"`uuid`": uuid, "`field`":"@updated"})
+	log.Debug(s.ToSql())
+
+	rows, err = s.RunWith(tx).Query()
+
+	if err != nil {
+		log.Debug(err)
+		return
+	}
+
+	defer rows.Close()
+
+
+	for rows.Next() {
+		var i string
+
+		if err = rows.Scan(&i); err != nil {
+			log.Debug(err)
+			return
+		}
+
+		ok = true
+	}
+
+	return
+}
+
 func GetRegObject(tx *sql.Tx, uuid string) (o RegObject, err error) {
 	var rows *sql.Rows
 
@@ -215,7 +248,7 @@ func GetRegObject(tx *sql.Tx, uuid string) (o RegObject, err error) {
 }
 
 func PutRegObject(tx *sql.Tx, o RegObject) (err error) {
-	log.Debugf("DELETE: %s.%s", o.Uuid)
+	log.Debugf("DELETE: %s", o.Uuid)
 
 	s := sq.Delete("`profile`.`reg_values`").Where(sq.Eq{"`uuid`": o.Uuid})
 	_, err = s.RunWith(tx).Exec()
@@ -260,30 +293,27 @@ func GetRegObjects(tx *sql.Tx, query, filter string) (olis []RegObject, err erro
 			err = fmt.Errorf("Too many filters. [%d]", MAX_FILTER)
 			return
 		}
-		q := sq.Select("`reg_values`.`uuid`").From("`profile`.`reg_values`")
+		q := sq.Select("DISTINCT `reg_values`.`uuid`").From("`profile`.`reg_values`")
 
 		switch o.Op {
+		case "key":
+			q = q.Where(sq.Eq{"`field`": o.Left})
+		case "nkey":
+			q = q.Where(sq.NotEq{"`field`": o.Left})
 		case "eq":
 			q = q.Where(sq.Eq{"`field`": o.Left, "`value`": o.Right})
-			break;
 		case "neq":
 			q = q.Where(sq.And{sq.Eq{"`field`": o.Left}, sq.NotEq{"`value`": o.Right}})
-			break;
 		case "gt":
 			q = q.Where(sq.And{sq.Eq{"`field`": o.Left}, sq.Gt{"`value`": o.Right}})
-			break;
 		case "lt":
 			q = q.Where(sq.And{sq.Eq{"`field`": o.Left}, sq.Lt{"`value`": o.Right}})
-			break;
 		case "ge":
 			q = q.Where(sq.And{sq.Eq{"`field`": o.Left}, sq.GtOrEq{"`value`": o.Right}})
-			break;
 		case "le":
 			q = q.Where(sq.And{sq.Eq{"`field`": o.Left}, sq.LtOrEq{"`value`": o.Right}})
-			break;
 		case "like":
 			q = q.Where("`field` = ? AND `value` LIKE ?", o.Left, o.Right)
-			break;
 		case "in":
 			q = q.Where(sq.Eq{"`field`": o.Left, "`value`": strings.Split(o.Right," ")})
 		}
@@ -384,7 +414,7 @@ func GetParentNetLevel(tx *sql.Tx, min, max, typ string) (level int) {
 
 	s := sq.Select("max(if(field='@netlevel',value,''))", "max(if(field='@netmin',value,''))", "max(if(field='@netmax',value,''))").
 	        From("`profile`.`reg_values`").
-	        Where(sq.Eq{"`field`": []string{"@netlevel", "@netmin", "@netmax"}}).GroupBy("`type`","`name`")
+	        Where(sq.Eq{"`field`": []string{"@netlevel", "@netmin", "@netmax"}}).GroupBy("`uuid`")
 
 	qmin := sq.Select("`reg_values`.`uuid`").From("`profile`.`reg_values`").Where(wmin)
 	s = s.JoinClause(qmin.Prefix("JOIN (").Suffix(") `qmax` USING (`uuid`)"))
@@ -400,7 +430,7 @@ func GetParentNetLevel(tx *sql.Tx, min, max, typ string) (level int) {
 
 	rows, err := s.RunWith(tx).Query()
 	if err != nil {
-		log.Debug(err)
+		log.Error(err)
 		return
 	}
 
@@ -414,7 +444,7 @@ func GetParentNetLevel(tx *sql.Tx, min, max, typ string) (level int) {
 
 	for rows.Next() {
 		if err = rows.Scan(&l, &vmin, &vmax); err != nil {
-			log.Debug(err)
+			log.Error(err)
 			return
 		}
 
@@ -438,7 +468,7 @@ func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
 	wmax := sq.And{sq.Eq{"`field`": "@netmax"}, sq.LtOrEq{"`value`": max}}
 
 	s := sq.Select("`uuid`").
-	        Column("lpad(value + ?, 3, '0') as value", step).
+	        Column("lpad(if(value + ? > 0, value + ?, 0), 3, '0') as value", step, step).
 		    From("`profile`.`reg_values`").
 		    Where(sq.Eq{"`field`": "@netlevel"}).
 		    Suffix("FOR UPDATE")
@@ -446,7 +476,7 @@ func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
 	qmin := sq.Select("`reg_values`.`uuid`").From("`profile`.`reg_values`").Where(wmin)
 	s = s.JoinClause(qmin.Prefix("JOIN (").Suffix(") `qmax` USING (`uuid`)"))
 
-	qmax := sq.Select("`reg_values`.`type`", "`reg_values`.`name`").From("`profile`.`reg_values`").Where(wmax)
+	qmax := sq.Select("`reg_values`.`uuid`").From("`profile`.`reg_values`").Where(wmax)
 	s = s.JoinClause(qmax.Prefix("JOIN (").Suffix(") `qmin` USING (`uuid`)"))
 
 	log.Debug(s.ToSql())
@@ -456,11 +486,11 @@ func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
 		log.Debug(err)
 		return
 	}
-
 	defer rows.Close()
 
-	log.Debugf("MOVE BRANCH: %s\t%s\t%s", min, max, step)
+	log.Debugf("MOVE BRANCH: %s\t%s\t%d", min, max, step)
 
+	m := make(map[string]string)
 	for rows.Next() {
 		var n, v string
 
@@ -470,7 +500,19 @@ func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
 		}
 
 		log.Debugf("NODE: %s\t%s", n, v)
+		m[n] = v
+	}
 
+	for k,v := range m {
+		_, err = sq.Update("`profile`.`reg_values`").
+			Set("`value`", v).
+			Where(sq.Eq{"`uuid`": k,"`field`": "@netlevel"}).
+			RunWith(tx).Exec()
+
+		if err != nil {
+			log.Error(err)
+			return
+		}
 	}
 
 	return

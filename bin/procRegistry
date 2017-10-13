@@ -4,6 +4,7 @@ import MySQLdb as mdb
 import glob
 import re
 import sys
+import datetime
 from uuid import uuid4
 
 
@@ -146,17 +147,22 @@ def run():
     routes = []
     inetnums = []
 
-    for g in ['as-block/*', 'as-set/*', 'aut-num/*', 'inet*num/*', 'mntner/*', 'organisation/*', 'person/*', 'route*/*',
-              'route-set/*', 'tinc-keyset/*', 'dns/*']:
+    for g in ['as-*/*', 'aut-num/*', 'inet*num/*', 'mntner/*', 'organisation/*', 'person/*', 'route*/*',
+              'tinc-keyset/*', 'dns/*']:
         for fn in glob.glob(g):
 
+            a, b = fn.split('/')
+            u = make_uri(a, b)
+
             lineno = 1
-            u = str(uuid4())
+            lines.append([lineno, u, '@uri', u])
+            lineno += 1
 
             lines.append([lineno, u, '@file', fn])
             lineno += 1
 
-            a, b = fn.split('/')
+            lines.append([lineno, u, '@updated', datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")])
+            lineno += 1
 
             with open(fn) as f:
 
@@ -177,9 +183,6 @@ def run():
                     lineno += 1
 
                 lines.append([lineno, u, '@name', b])
-                lineno += 1
-
-                lines.append([lineno, u, '@uri', make_uri(a, b)])
                 lineno += 1
 
                 if a in ['route', 'route6', 'inetnum', 'inet6num']:
@@ -233,7 +236,7 @@ def run():
         cur = con.cursor()
 
         for row in lines:
-            cur.execute('INSERT\n'
+            cur.execute('REPLACE\n'
                         '   INTO `profile`.`reg_values`\n'
                         '    SET `seq`   = %s,\n'
                         '        `uuid`  = %s,\n'

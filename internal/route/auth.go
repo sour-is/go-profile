@@ -445,7 +445,7 @@ func deleteSession(w http.ResponseWriter, r *http.Request) {
 type RubiconCredentials struct {
 	Username      string
 	Password      string
-	GenerateToken string
+	GenerateToken bool
 }
 type RubiconUserInfo struct {
 	UserId    int64  `json:"userId"`
