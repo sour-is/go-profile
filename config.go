@@ -112,11 +112,11 @@ func initConfig() {
 		log.Notice("Read config from: ", viper.ConfigFileUsed())
 
 		dbm.Config()
-
+/*
 		if err = dbm.Migrate(dbm.Asset{File: Asset, Dir: AssetDir}); err != nil {
 			panic(err)
 		}
-
+*/
 		if viper.IsSet("http") {
 			httpsrv.Config()
 		}

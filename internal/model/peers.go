@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sour.is/x/uuid"
 	"strings"
+	"bytes"
 )
 
 var MAX_FILTER int = 40
@@ -53,6 +54,7 @@ func GetPeerList(tx *sql.Tx, owner string) (lis []PeerNode, err error) {
 
 	return
 }
+
 func HasPeerNode(tx *sql.Tx, id string, lock bool) (_ bool, err error) {
 
 	s := sq.Select("`peer_id`").
@@ -76,6 +78,7 @@ func HasPeerNode(tx *sql.Tx, id string, lock bool) (_ bool, err error) {
 
 	return id == ck, nil
 }
+
 func GetPeerNode(tx *sql.Tx, id string, lock bool) (p PeerNode, ok bool, err error) {
 
 	s := sq.Select("`peer_id`", "`peer_name`", "`peer_note`", "`peer_family`", "`peer_country`", "`peer_nick`", "`peer_owner`", "`peer_type`", "`peer_active`", "`peer_created`").
@@ -98,6 +101,7 @@ func GetPeerNode(tx *sql.Tx, id string, lock bool) (p PeerNode, ok bool, err err
 	ok = true
 	return p, ok, err
 }
+
 func (p PeerNode) Insert(tx *sql.Tx) (sp PeerNode, err error) {
 	p.Id = uuid.V4()
 
@@ -180,7 +184,110 @@ type RegObjItem struct {
 	Field string `json:"field"`
 	Value string `json:"value"`
 }
+type RegObjects []RegObject
 
+func (lis RegObjects) String() string {
+	buf := new(bytes.Buffer)
+
+	space := 0
+	for _, o := range lis {
+		if len(o.Uuid) > space {
+			space = len(o.Uuid)
+		}
+	}
+	space += 2
+
+	for _, o := range lis {
+		key_space := 0
+		for _, n := range o.Items {
+			if len(n.Field) > key_space {
+				key_space = len(n.Field)
+			}
+		}
+		key_space += 2
+
+		for _, n := range o.Items {
+
+			vals := strings.Split(n.Value, "\n")
+
+			buf.WriteString(o.Uuid)
+			buf.WriteString(" ")
+			buf.WriteString(strings.Repeat(" ", space - len(o.Uuid)))
+
+			buf.WriteString(fmt.Sprintf("%03d", n.Seq))
+			buf.WriteString(" ")
+
+			buf.WriteString(n.Field)
+			buf.WriteString(" ")
+
+			buf.WriteString(strings.Repeat(" ", key_space - len(n.Field)))
+			buf.WriteString(":")
+			buf.WriteString(vals[0])
+
+			buf.WriteString("\n")
+
+			if len(vals) > 1 {
+				for _, val := range vals[1:] {
+					buf.WriteString(strings.Repeat(" ", space + 1))
+					buf.WriteString(":")
+					buf.WriteString(val)
+					buf.WriteString("\n")
+				}
+			}
+		}
+	}
+
+	return buf.String()
+}
+func (o RegObject) String() string {
+	return o.StringSpace(0)
+}
+func (o RegObject) StringSpace(space int) string {
+	buf := new(bytes.Buffer)
+
+	if space == 0 {
+		space = len(o.Uuid)
+	}
+
+	key_space := 0
+	for _, n := range o.Items {
+		if len(n.Field) > key_space {
+			key_space = len(n.Field)
+		}
+	}
+	key_space += 2
+
+	for _, n := range o.Items {
+
+		vals := strings.Split(n.Value, "\n")
+
+		buf.WriteString(o.Uuid)
+		buf.WriteString(" ")
+		buf.WriteString(strings.Repeat(" ", space-len(o.Uuid)))
+
+		buf.WriteString(fmt.Sprintf("%03d", n.Seq))
+		buf.WriteString(" ")
+
+		buf.WriteString(n.Field)
+		buf.WriteString(" ")
+
+		buf.WriteString(strings.Repeat(" ", key_space-len(n.Field)))
+		buf.WriteString(":")
+		buf.WriteString(vals[0])
+
+		buf.WriteString("\n")
+
+		if len(vals) > 1 {
+			for _, val := range vals[1:] {
+				buf.WriteString(strings.Repeat(" ", space + key_space + 6))
+				buf.WriteString(":")
+				buf.WriteString(val)
+				buf.WriteString("\n")
+			}
+		}
+	}
+	return buf.String()
+}
 
 func HasRegObject(tx *sql.Tx, uuid string) (ok bool, err error) {
 	var rows *sql.Rows
@@ -274,15 +381,11 @@ func PutRegObject(tx *sql.Tx, o RegObject) (err error) {
 	return
 }
 
-
-
-
-func GetRegObjects(tx *sql.Tx, query, filter string) (olis []RegObject, err error) {
+func GetRegObjects(tx *sql.Tx, query, filter string) (olis RegObjects, err error) {
 	var rows *sql.Rows
 
 	log.Info(fmt.Sprintf("Query: %s", query))
 	log.Info(fmt.Sprintf("Filter: %s", filter))
-
 
 	s := sq.Select("`reg_values`.`uuid`", "`reg_values`.`seq`", "`reg_values`.`field`", "`reg_values`.`value`").
 		From("`profile`.`reg_values`").OrderBy("`reg_values`.`uuid`","`reg_values`.`seq`")
@@ -517,7 +620,6 @@ func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
 
 	return
 }
-
 
 
 type Ops struct {

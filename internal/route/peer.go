@@ -27,12 +27,12 @@ func init() {
 func getNodes(w http.ResponseWriter, _ *http.Request, i ident.Ident) {
 	var lis []model.PeerNode
 
-	if !i.LoggedIn() {
+	if !i.IsActive() {
 		writeMsg(w, http.StatusForbidden, "Access Denied")
 		return
 	}
 	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
-		lis, err = model.GetPeerList(tx, i.Identity())
+		lis, err = model.GetPeerList(tx, i.GetIdentity())
 		return
 	})
 	if err != nil {
@@ -52,7 +52,7 @@ func getNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	var err error
 	var node model.PeerNode
 
-	if !i.LoggedIn() {
+	if !i.IsActive() {
 		writeMsg(w, http.StatusForbidden, "Access Denied")
 		return
 	}
@@ -76,7 +76,7 @@ func putNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	if !i.LoggedIn() {
+	if !i.IsActive() {
 		writeMsg(w, http.StatusForbidden, "Access Denied")
 		return
 	}
@@ -90,11 +90,11 @@ func putNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	node.Id = id
 	if node.Owner == "" {
-		node.Owner = strings.ToLower(i.Identity())
+		node.Owner = strings.ToLower(i.GetIdentity())
 	}
 
-	if strings.ToLower(node.Owner) != strings.ToLower(i.Identity()) {
-		writeMsg(w, http.StatusForbidden, "peer_owner should match user ident "+node.Owner+" == "+i.Identity())
+	if strings.ToLower(node.Owner) != strings.ToLower(i.GetIdentity()) {
+		writeMsg(w, http.StatusForbidden, "peer_owner should match user ident "+node.Owner+" == "+i.GetIdentity())
 		return
 	}
 
@@ -110,9 +110,9 @@ func putNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 			return
 		}
-		if strings.ToLower(check.Owner) != strings.ToLower(i.Identity()) {
+		if strings.ToLower(check.Owner) != strings.ToLower(i.GetIdentity()) {
 			ok = false
-			writeMsg(w, http.StatusForbidden, "peer_owner should match user ident "+node.Owner+" == "+i.Identity())
+			writeMsg(w, http.StatusForbidden, "peer_owner should match user ident "+node.Owner+" == "+i.GetIdentity())
 			return
 		}
 		if node, err = node.Update(tx); err != nil {
@@ -135,7 +135,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	if !i.LoggedIn() {
+	if !i.IsActive() {
 		writeMsg(w, http.StatusForbidden, "Access Denied")
 		return
 	}
@@ -150,9 +150,9 @@ func deleteNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			writeMsg(w, http.StatusNotFound, "Not Found")
 			return
 		}
-		if strings.ToLower(node.Owner) != i.Identity() {
+		if strings.ToLower(node.Owner) != i.GetIdentity() {
 			ok = false
-			writeMsg(w, http.StatusForbidden, "peer_owner should match user ident: "+node.Owner+" == "+i.Identity())
+			writeMsg(w, http.StatusForbidden, "peer_owner should match user ident: "+node.Owner+" == "+i.GetIdentity())
 			return
 		}
 

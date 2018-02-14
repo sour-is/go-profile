@@ -99,11 +99,11 @@ func NewUser(r *http.Request) ident.Ident {
 	}
 }
 
-func (m User) Identity() string {
+func (m User) GetIdentity() string {
 	return m.ident
 }
 
-func (m User) Aspect() string {
+func (m User) GetAspect() string {
 	return m.aspect
 }
 
@@ -125,10 +125,10 @@ func (m User) HasGroup(g ...string) (ok bool) {
 	return
 }
 
-func (m User) LoggedIn() bool {
+func (m User) IsActive() bool {
 	return m.active
 }
 
-func (m User) DisplayName() string {
+func (m User) GetDisplay() string {
 	return m.name
 }

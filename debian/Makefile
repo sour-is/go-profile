@@ -36,4 +36,4 @@ copy:
 	ssh $(REPO_IP) -- $(REPO_PATH)scan.sh "$(NAME)_$${VERSION}-$${RELEASE}.deb";
 
 deploy:
-	ansible kapha -s -m apt -a "name=sour.is-profile update_cache=yes state=latest"
+	ansible kapha -b -m apt -a "name=sour.is-profile update_cache=yes state=latest"

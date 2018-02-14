@@ -1,5 +1,4 @@
-profile
-!internal/profile/*
-bindata.go
-config.toml
-bin/data
+/profile
+/bindata.go
+/config.toml
+/bin/data

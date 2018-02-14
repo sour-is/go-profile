@@ -6,6 +6,6 @@
 ,"site_nav":
  {"link":"/", "title":"Sour.is", "items":[
    {"link":"/peer",      "title":"Peers"},
-   {"link":"/registry/",  "title":"Registry"}
+   {"link":"https://registry.dn42.us/",  "title":"Registry"}
  ]}
 }

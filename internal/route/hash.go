@@ -31,12 +31,12 @@ func getHashList(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
 		// has group role?
-		if allow, err = model.HasUserRoleTx(tx, i.Aspect(), i.Identity(), "owner", "admin"); err != nil {
+		if allow, err = model.HasUserRoleTx(tx, i.GetAspect(), i.GetIdentity(), "owner", "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		// aspect must match auth
-		if aspect != i.Aspect() {
+		if aspect != i.GetAspect() {
 			allow = false
 		}
 		if !allow {
@@ -76,8 +76,8 @@ func getHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
 		if ok, err = model.HasUserRoleTx(
 			tx,
-			i.Aspect(),
-			i.Identity(),
+			i.GetAspect(),
+			i.GetIdentity(),
 			"hash.read."+name,
 			"hash.write."+name,
 			"hash.reader",
@@ -91,7 +91,7 @@ func getHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		}
 
 		// aspect must match auth
-		if aspect != i.Aspect() {
+		if aspect != i.GetAspect() {
 			allow = false
 			return
 		}
@@ -143,8 +143,8 @@ func putHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		// has hash role?
 		allow, err = model.HasUserRoleTx(
 			tx,
-			i.Aspect(),
-			i.Identity(),
+			i.GetAspect(),
+			i.GetIdentity(),
 			"hash.write."+name,
 			"hash.writer",
 			"owner",
@@ -155,7 +155,7 @@ func putHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		}
 
 		// aspect must match auth
-		if aspect != i.Aspect() {
+		if aspect != i.GetAspect() {
 			allow = false
 		}
 		if !allow {
@@ -201,8 +201,8 @@ func deleteHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		// has hash role?
 		allow, err = model.HasUserRoleTx(
 			tx,
-			i.Aspect(),
-			i.Identity(),
+			i.GetAspect(),
+			i.GetIdentity(),
 			"hash.write."+name,
 			"hash.writer",
 			"owner",
@@ -211,7 +211,7 @@ func deleteHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			return
 		}
 		// aspect must match auth
-		if aspect != i.Aspect() {
+		if aspect != i.GetAspect() {
 			allow = false
 		}
 		if !allow {

@@ -85,7 +85,7 @@ func getCheckAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		allowAnon = true
 	}
 
-	if !allowAnon && !i.LoggedIn() {
+	if !allowAnon && !i.IsActive() {
 		writeMsg(w, http.StatusForbidden, "NO_IDENTITY")
 		return
 	}
@@ -111,7 +111,7 @@ func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	redirect := req["redirect_uri"]
 	state := req["state"]
 
-	if !i.LoggedIn() {
+	if !i.IsActive() {
 		writeMsg(w, http.StatusForbidden, "NOT_AUTHORIZED")
 		return
 	}
@@ -135,7 +135,7 @@ func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	code := enc(sha[:])
 
 	var m map[string]string
-	atUser := "@" + strings.ToLower(i.Identity())
+	atUser := "@" + strings.ToLower(i.GetIdentity())
 
 	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
 		if m, ok, err = model.GetHashMap(tx, atUser, client); err != nil {
@@ -145,7 +145,7 @@ func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 			return
 		}
 
-		m = map[string]string{"ident": i.Identity(), "client": client}
+		m = map[string]string{"ident": i.GetIdentity(), "client": client}
 		err = model.PutHashMap(tx, "oauth-token", code, m)
 
 		m = map[string]string{"code": code}
@@ -232,12 +232,12 @@ func oauthToken(w http.ResponseWriter, r *http.Request) {
 	writeObject(w, http.StatusOK, o)
 }
 func oauthUser(w http.ResponseWriter, _ *http.Request, i ident.Ident) {
-	if !i.LoggedIn() {
+	if !i.IsActive() {
 		writeMsg(w, http.StatusForbidden, "NOT_AUTHORIZED")
 		return
 	}
 
-	p, err := profile.GetUserProfile("oauth", i.Identity(), profile.ProfileGlobal)
+	p, err := profile.GetUserProfile("oauth", i.GetIdentity(), profile.ProfileGlobal)
 	if err != nil {
 		writeMsg(w, http.StatusInternalServerError, "ERROR: "+err.Error())
 		return
@@ -346,7 +346,7 @@ func postPasswd(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		return
 	}
 
-	if ok, err = profile.SetPassword(i.Identity(), cred.Password); err != nil {
+	if ok, err = profile.SetPassword(i.GetIdentity(), cred.Password); err != nil {
 		writeMsg(w, http.StatusBadRequest, "ERROR: "+err.Error())
 		return
 	}
@@ -555,8 +555,8 @@ func getCheckAuth(w http.ResponseWriter, r *http.Request) {
 
 
 	t := AuthToken{
-		i.Identity(),
-		i.Aspect(),
+		i.GetIdentity(),
+		i.GetAspect(),
 		time.Now().UnixNano(),
 		time.Now().AddDate(0,0,1).UnixNano(),
 		[]byte(""),
@@ -589,7 +589,7 @@ func getCheckAuth2(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 type AuthToken struct {
 	Ident  string   `json:"ident",bencoding:"ident"`
-	Aspect string   `json:"aspect",bencoding:"aspect"`
+	GetAspect string   `json:"aspect",bencoding:"aspect"`
 	Nonce  int64    `json:"nonce",bencoding:"nonce"`
 	Expire int64    `json:"expire",bencoding:"expire"`
 	PubKey []byte   `json:"pkey",bencoding:"pkey"`
