@@ -2,7 +2,7 @@ NAME=sour.is-profile
 VERSION=$(shell cat VERSION)
 RELEASE=$(shell cat RELEASE)
 
-REPO_IP="172.22.141.171"
+REPO_HOST="kapha"
 REPO_PATH="/opt/web/pub/sour.is/debian/"
 
 all: release build copy
@@ -32,8 +32,8 @@ copy:
 	export VERSION=`cat VERSION`; \
 	export RELEASE=`cat RELEASE`; \
 	export BUILD="BUILD/$(NAME)_$${VERSION}-$${RELEASE}"; \
-	scp "$${BUILD}.deb" $(REPO_IP):$(REPO_PATH); \
-	ssh $(REPO_IP) -- $(REPO_PATH)scan.sh "$(NAME)_$${VERSION}-$${RELEASE}.deb";
+	scp "$${BUILD}.deb" $(REPO_HOST):$(REPO_PATH); \
+	ssh $(REPO_HOST) -- $(REPO_PATH)scan.sh "$(NAME)_$${VERSION}-$${RELEASE}.deb";
 
 deploy:
-	ansible kapha -b -m apt -a "name=sour.is-profile update_cache=yes state=latest"
+	ansible $(REPO_HOST) -b -m apt -a "name=sour.is-profile update_cache=yes state=latest"
