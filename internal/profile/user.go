@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"sour.is/x/dbm"
-	"sour.is/x/httpsrv"
-	"sour.is/x/log"
+
+	"sour.is/go/dbm"
+	"sour.is/go/httpsrv"
+	"sour.is/go/log"
 	"sour.is/x/profile/internal/model"
 
 	"crypto/sha256"
+
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/scrypt"
 

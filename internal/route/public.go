@@ -1,9 +1,9 @@
 package route
 
-import "sour.is/x/httpsrv"
+import "sour.is/go/httpsrv"
 
 func init() {
 	httpsrv.AssetRegister("profile", httpsrv.AssetRoutes{
-		{"Assets", "/", httpsrv.FsHtml5(assetFS())},
+		{Name: "Assets", Path: "/", HandlerFunc: httpsrv.FsHtml5(assetFS())},
 	})
 }

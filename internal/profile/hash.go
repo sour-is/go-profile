@@ -2,7 +2,8 @@ package profile
 
 import (
 	"database/sql"
-	"sour.is/x/dbm"
+
+	"sour.is/go/dbm"
 	"sour.is/x/profile/internal/model"
 )
 

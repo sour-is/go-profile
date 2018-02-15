@@ -1,18 +1,18 @@
 package model
 
 import (
-	sq "gopkg.in/Masterminds/squirrel.v1"
-	"sour.is/x/log"
-
+	"bytes"
 	"database/sql"
 	"fmt"
-	"sour.is/x/uuid"
 	"strings"
-	"bytes"
+
+	sq "gopkg.in/Masterminds/squirrel.v1"
+
+	"sour.is/go/log"
+	"sour.is/go/uuid"
 )
 
 var MAX_FILTER int = 40
-
 
 type PeerNode struct {
 	Id      string `json:"peer_id"`
@@ -174,9 +174,8 @@ func DeletePeerNode(tx *sql.Tx, id string) (err error) {
 	return
 }
 
-
 type RegObject struct {
-	Uuid  string        `json:"uuid"`
+	Uuid  string       `json:"uuid"`
 	Items []RegObjItem `json:"items"`
 }
 type RegObjItem struct {
@@ -212,7 +211,7 @@ func (lis RegObjects) String() string {
 
 			buf.WriteString(o.Uuid)
 			buf.WriteString(" ")
-			buf.WriteString(strings.Repeat(" ", space - len(o.Uuid)))
+			buf.WriteString(strings.Repeat(" ", space-len(o.Uuid)))
 
 			buf.WriteString(fmt.Sprintf("%03d", n.Seq))
 			buf.WriteString(" ")
@@ -220,7 +219,7 @@ func (lis RegObjects) String() string {
 			buf.WriteString(n.Field)
 			buf.WriteString(" ")
 
-			buf.WriteString(strings.Repeat(" ", key_space - len(n.Field)))
+			buf.WriteString(strings.Repeat(" ", key_space-len(n.Field)))
 			buf.WriteString(":")
 			buf.WriteString(vals[0])
 
@@ -228,7 +227,7 @@ func (lis RegObjects) String() string {
 
 			if len(vals) > 1 {
 				for _, val := range vals[1:] {
-					buf.WriteString(strings.Repeat(" ", space + 1))
+					buf.WriteString(strings.Repeat(" ", space+1))
 					buf.WriteString(":")
 					buf.WriteString(val)
 					buf.WriteString("\n")
@@ -279,7 +278,7 @@ func (o RegObject) StringSpace(space int) string {
 
 		if len(vals) > 1 {
 			for _, val := range vals[1:] {
-				buf.WriteString(strings.Repeat(" ", space + key_space + 6))
+				buf.WriteString(strings.Repeat(" ", space+key_space+6))
 				buf.WriteString(":")
 				buf.WriteString(val)
 				buf.WriteString("\n")
@@ -294,7 +293,7 @@ func HasRegObject(tx *sql.Tx, uuid string) (ok bool, err error) {
 
 	s := sq.Select("DISTINCT `uuid`").
 		From("`profile`.`reg_values`").
-		Where(sq.Eq{"`uuid`": uuid, "`field`":"@updated"})
+		Where(sq.Eq{"`uuid`": uuid, "`field`": "@updated"})
 	log.Debug(s.ToSql())
 
 	rows, err = s.RunWith(tx).Query()
@@ -305,7 +304,6 @@ func HasRegObject(tx *sql.Tx, uuid string) (ok bool, err error) {
 	}
 
 	defer rows.Close()
-
 
 	for rows.Next() {
 		var i string
@@ -327,7 +325,6 @@ func GetRegObject(tx *sql.Tx, uuid string) (o RegObject, err error) {
 	s := sq.Select("`uuid`", "`seq`", "`field`", "`value`").
 		From("`profile`.`reg_values`").
 		Where(sq.Eq{"`uuid`": uuid}).OrderBy("`seq`")
-
 
 	rows, err = s.RunWith(tx).Query()
 
@@ -388,7 +385,7 @@ func GetRegObjects(tx *sql.Tx, query, filter string) (olis RegObjects, err error
 	log.Info(fmt.Sprintf("Filter: %s", filter))
 
 	s := sq.Select("`reg_values`.`uuid`", "`reg_values`.`seq`", "`reg_values`.`field`", "`reg_values`.`value`").
-		From("`profile`.`reg_values`").OrderBy("`reg_values`.`uuid`","`reg_values`.`seq`")
+		From("`profile`.`reg_values`").OrderBy("`reg_values`.`uuid`", "`reg_values`.`seq`")
 
 	for i, o := range simpleParse(query) {
 		log.Info(o)
@@ -418,7 +415,7 @@ func GetRegObjects(tx *sql.Tx, query, filter string) (olis RegObjects, err error
 		case "like":
 			q = q.Where("`field` = ? AND `value` LIKE ?", o.Left, o.Right)
 		case "in":
-			q = q.Where(sq.Eq{"`field`": o.Left, "`value`": strings.Split(o.Right," ")})
+			q = q.Where(sq.Eq{"`field`": o.Left, "`value`": strings.Split(o.Right, " ")})
 		}
 		s = s.JoinClause(q.Prefix("JOIN (").Suffix(fmt.Sprintf(") `r%03d` USING (`uuid`)", i)))
 	}
@@ -472,7 +469,6 @@ func GetRegObjects(tx *sql.Tx, query, filter string) (olis RegObjects, err error
 		olis = append(olis, RegObject{Uuid: last_uuid, Items: lis})
 	}
 
-
 	return
 }
 
@@ -482,7 +478,6 @@ func GetRegAuth(tx *sql.Tx, name string) (o RegObject, err error) {
 	s := sq.Select("`mntner`", "`pw_type`", "`pw_value`").
 		From("`profile`.`reg_auth`").
 		Where(sq.Eq{"`mntner`": name})
-
 
 	rows, err = s.RunWith(tx).Query()
 
@@ -516,8 +511,8 @@ func GetParentNetLevel(tx *sql.Tx, min, max, typ string) (level int) {
 	wmax := sq.And{sq.Eq{"`field`": "@netmax"}, sq.GtOrEq{"`value`": max}}
 
 	s := sq.Select("max(if(field='@netlevel',value,''))", "max(if(field='@netmin',value,''))", "max(if(field='@netmax',value,''))").
-	        From("`profile`.`reg_values`").
-	        Where(sq.Eq{"`field`": []string{"@netlevel", "@netmin", "@netmax"}}).GroupBy("`uuid`")
+		From("`profile`.`reg_values`").
+		Where(sq.Eq{"`field`": []string{"@netlevel", "@netmin", "@netmax"}}).GroupBy("`uuid`")
 
 	qmin := sq.Select("`reg_values`.`uuid`").From("`profile`.`reg_values`").Where(wmin)
 	s = s.JoinClause(qmin.Prefix("JOIN (").Suffix(") `qmax` USING (`uuid`)"))
@@ -527,7 +522,6 @@ func GetParentNetLevel(tx *sql.Tx, min, max, typ string) (level int) {
 
 	qtype := sq.Select("`reg_values`.`uuid`").From("`profile`.`reg_values`").Where(sq.Eq{"`field`": "@type", "`value`": "net"})
 	s = s.JoinClause(qtype.Prefix("JOIN (").Suffix(") `qtype` USING (`uuid`)"))
-
 
 	log.Debug(s.ToSql())
 
@@ -571,10 +565,10 @@ func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
 	wmax := sq.And{sq.Eq{"`field`": "@netmax"}, sq.LtOrEq{"`value`": max}}
 
 	s := sq.Select("`uuid`").
-	        Column("lpad(if(value + ? > 0, value + ?, 0), 3, '0') as value", step, step).
-		    From("`profile`.`reg_values`").
-		    Where(sq.Eq{"`field`": "@netlevel"}).
-		    Suffix("FOR UPDATE")
+		Column("lpad(if(value + ? > 0, value + ?, 0), 3, '0') as value", step, step).
+		From("`profile`.`reg_values`").
+		Where(sq.Eq{"`field`": "@netlevel"}).
+		Suffix("FOR UPDATE")
 
 	qmin := sq.Select("`reg_values`.`uuid`").From("`profile`.`reg_values`").Where(wmin)
 	s = s.JoinClause(qmin.Prefix("JOIN (").Suffix(") `qmax` USING (`uuid`)"))
@@ -606,10 +600,10 @@ func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
 		m[n] = v
 	}
 
-	for k,v := range m {
+	for k, v := range m {
 		_, err = sq.Update("`profile`.`reg_values`").
 			Set("`value`", v).
-			Where(sq.Eq{"`uuid`": k,"`field`": "@netlevel"}).
+			Where(sq.Eq{"`uuid`": k, "`field`": "@netlevel"}).
 			RunWith(tx).Exec()
 
 		if err != nil {
@@ -620,7 +614,6 @@ func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
 
 	return
 }
-
 
 type Ops struct {
 	Left  string
@@ -634,14 +627,14 @@ func simpleParse(in string) (out []Ops) {
 	for _, i := range items {
 		log.Info(i)
 		eq := strings.Split(i, "=")
-		switch(len(eq)) {
+		switch len(eq) {
 		case 2:
 			out = append(out, Ops{eq[0], "eq", eq[1]})
 			break
 		case 3:
-		    if eq[1] == "" {
-		    	eq[1] = "eq"
-		    }
+			if eq[1] == "" {
+				eq[1] = "eq"
+			}
 			out = append(out, Ops{eq[0], eq[1], eq[2]})
 		}
 	}

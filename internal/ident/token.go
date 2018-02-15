@@ -2,10 +2,11 @@ package ident
 
 import "net/http"
 import (
-	"sour.is/x/ident"
-	"sour.is/x/log"
-	"sour.is/x/profile/internal/profile"
 	"strings"
+
+	"sour.is/go/ident"
+	"sour.is/go/log"
+	"sour.is/x/profile/internal/profile"
 )
 
 func init() {

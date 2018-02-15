@@ -2,9 +2,10 @@ package model
 
 import (
 	"database/sql"
+
 	sq "gopkg.in/Masterminds/squirrel.v1"
-	"sour.is/x/dbm"
-	"sour.is/x/log"
+	"sour.is/go/dbm"
+	"sour.is/go/log"
 )
 
 type UserRole struct {

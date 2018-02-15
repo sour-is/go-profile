@@ -3,15 +3,15 @@ package route
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"net/http"
-	"sour.is/x/dbm"
-	"sour.is/x/httpsrv"
-	"sour.is/x/ident"
-	"sour.is/x/profile/internal/model"
 	"strings"
-)
 
+	"github.com/gorilla/mux"
+	"sour.is/go/dbm"
+	"sour.is/go/httpsrv"
+	"sour.is/go/ident"
+	"sour.is/x/profile/internal/model"
+)
 
 func init() {
 	httpsrv.IdentRegister("peer", httpsrv.IdentRoutes{
@@ -20,9 +20,8 @@ func init() {
 		{"getNode", "GET", "/v1/peers/peer.node({id})", getNode},
 		{"putNode", "PUT", "/v1/peers/peer.node({id})", putNode},
 		{"putNode", "DELETE", "/v1/peers/peer.node({id})", deleteNode},
-    })
+	})
 }
-
 
 func getNodes(w http.ResponseWriter, _ *http.Request, i ident.Ident) {
 	var lis []model.PeerNode
@@ -170,4 +169,3 @@ func deleteNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusNoContent, node)
 }
-

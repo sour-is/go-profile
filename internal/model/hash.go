@@ -2,8 +2,9 @@ package model
 
 import (
 	"database/sql"
+
 	sq "gopkg.in/Masterminds/squirrel.v1"
-	"sour.is/x/log"
+	"sour.is/go/log"
 )
 
 type HashValue struct {

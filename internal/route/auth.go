@@ -5,19 +5,20 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/dchest/captcha"
-	"github.com/gorilla/mux"
 	"hash/crc32"
 	"net/http"
 	"regexp"
-	"sour.is/x/dbm"
-	"sour.is/x/httpsrv"
-	"sour.is/x/ident"
-	"sour.is/x/log"
-	"sour.is/x/profile/internal/model"
-	"sour.is/x/profile/internal/profile"
 	"strings"
 	"time"
+
+	"github.com/dchest/captcha"
+	"github.com/gorilla/mux"
+	"sour.is/go/dbm"
+	"sour.is/go/httpsrv"
+	"sour.is/go/ident"
+	"sour.is/go/log"
+	"sour.is/x/profile/internal/model"
+	"sour.is/x/profile/internal/profile"
 )
 
 func init() {

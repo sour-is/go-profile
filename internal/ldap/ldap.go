@@ -1,14 +1,15 @@
 package ldap
 
 import (
-	"github.com/nmcclain/ldap"
-	"github.com/spf13/viper"
 	"net"
 	"os"
-	"sour.is/x/log"
-	"sour.is/x/profile/internal/profile"
 	"strings"
 	"time"
+
+	"github.com/nmcclain/ldap"
+	"github.com/spf13/viper"
+	"sour.is/go/log"
+	"sour.is/x/profile/internal/profile"
 )
 
 var listen string

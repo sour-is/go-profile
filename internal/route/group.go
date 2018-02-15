@@ -3,12 +3,13 @@ package route
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"net/http"
-	"sour.is/x/dbm"
-	"sour.is/x/httpsrv"
-	"sour.is/x/ident"
-	"sour.is/x/log"
+
+	"github.com/gorilla/mux"
+	"sour.is/go/dbm"
+	"sour.is/go/httpsrv"
+	"sour.is/go/ident"
+	"sour.is/go/log"
 	"sour.is/x/profile/internal/model"
 	"sour.is/x/profile/internal/profile"
 )

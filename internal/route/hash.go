@@ -7,9 +7,10 @@ import (
 	"github.com/gorilla/mux"
 
 	"database/sql"
-	"sour.is/x/dbm"
-	"sour.is/x/httpsrv"
-	"sour.is/x/ident"
+
+	"sour.is/go/dbm"
+	"sour.is/go/httpsrv"
+	"sour.is/go/ident"
 	"sour.is/x/profile/internal/model"
 )
 

@@ -24,7 +24,7 @@ build:
 	export SED="s_Version:.*_Version: $${VERSION}-$${RELEASE}_"; \
 	sed -i "$$SED" "$${BUILD}/DEBIAN/control"; \
 	go build -o $${BUILD}/opt/sour.is/bin/profile \
-                 -ldflags "-X main.APP_VERSION=$${VERSION}-$${RELEASE} -X main.APP_BUILD=$${DATE}"\
+                 -ldflags "-X main.AppVersion=$${VERSION}-$${RELEASE} -X main.AppBuild=$${DATE}"\
            sour.is/x/profile; \
 	dpkg -b $${BUILD};
 

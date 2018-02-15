@@ -5,8 +5,9 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
-	"golang.org/x/crypto/pbkdf2"
+
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 type RegAuthCreds struct {
