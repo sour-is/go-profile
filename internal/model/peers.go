@@ -8,8 +8,8 @@ import (
 
 	sq "gopkg.in/Masterminds/squirrel.v1"
 
-	"sour.is/go/log"
-	"sour.is/go/uuid"
+	"sour.is/x/toolbox/log"
+	"sour.is/x/toolbox/uuid"
 )
 
 var MAX_FILTER int = 40

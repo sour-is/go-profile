@@ -184,7 +184,7 @@
 
 [[projects]]
   branch = "master"
-  name = "sour.is/go"
+  name = "sour.is/x/toolbox"
   packages = [
     "dbm",
     "httpsrv",
@@ -193,11 +193,11 @@
     "uuid",
     "uuid/routes"
   ]
-  revision = "e7f65531b0f31da53aeaa829bd7f09a550be34c5"
+  revision = "41be9e5a06267b805ab1fa4ba928232865798133"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0ee1c0c342f6fc5f3f7dfef358d94e2d56ae027877a70150ae3f24a2e6f14f4c"
+  inputs-digest = "ed3d20dc6f65dcc4c482f6f7fbcd8c98da8b1f696833fc9eb59df992c1ab4aef"
   solver-name = "gps-cdcl"
   solver-version = 1

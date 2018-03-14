@@ -6,10 +6,10 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"sour.is/go/dbm"
-	"sour.is/go/httpsrv"
-	"sour.is/go/ident"
-	"sour.is/go/log"
+	"sour.is/x/toolbox/dbm"
+	"sour.is/x/toolbox/httpsrv"
+	"sour.is/x/toolbox/ident"
+	"sour.is/x/toolbox/log"
 	"sour.is/x/profile/internal/model"
 	"sour.is/x/profile/internal/profile"
 )

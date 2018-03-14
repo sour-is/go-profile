@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"sour.is/go/dbm"
-	"sour.is/go/httpsrv"
-	"sour.is/go/log"
+	"sour.is/x/toolbox/dbm"
+	"sour.is/x/toolbox/httpsrv"
+	"sour.is/x/toolbox/log"
 	"sour.is/x/profile/internal/model"
 
 	"crypto/sha256"

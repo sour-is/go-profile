@@ -4,7 +4,7 @@ import (
 	"database/sql"
 
 	sq "gopkg.in/Masterminds/squirrel.v1"
-	"sour.is/go/log"
+	"sour.is/x/toolbox/log"
 )
 
 type GroupUser struct {

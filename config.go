@@ -7,9 +7,9 @@ import (
 	"github.com/docopt/docopt.go"
 	"github.com/spf13/viper"
 
-	"sour.is/go/dbm"
-	"sour.is/go/httpsrv"
-	"sour.is/go/log"
+	"sour.is/x/toolbox/dbm"
+	"sour.is/x/toolbox/httpsrv"
+	"sour.is/x/toolbox/log"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "sour.is/x/profile/internal/ident"

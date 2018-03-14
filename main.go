@@ -5,10 +5,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"sour.is/go/log"
+	"sour.is/x/toolbox/log"
 
-	"sour.is/go/httpsrv"
-	_ "sour.is/go/uuid/routes"
+	"sour.is/x/toolbox/httpsrv"
+	_ "sour.is/x/toolbox/uuid/routes"
 	_ "sour.is/x/profile/internal/route"
 
 	"sour.is/x/profile/internal/ldap"

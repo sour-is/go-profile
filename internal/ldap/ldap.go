@@ -8,8 +8,11 @@ import (
 
 	"github.com/nmcclain/ldap"
 	"github.com/spf13/viper"
-	"sour.is/go/log"
+	"sour.is/x/toolbox/log"
 	"sour.is/x/profile/internal/profile"
+
+	stdlog "log"
+
 )
 
 var listen string
@@ -17,7 +20,7 @@ var domain string
 var baseDN string
 var server *ldap.Server
 
-var accessLog = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.LUTC)
+var accessLog = stdlog.New(os.Stdout, "", log.Ldate|log.Ltime|log.LUTC)
 
 type ldapHandler struct{}
 

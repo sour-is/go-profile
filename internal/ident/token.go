@@ -4,8 +4,8 @@ import "net/http"
 import (
 	"strings"
 
-	"sour.is/go/ident"
-	"sour.is/go/log"
+	"sour.is/x/toolbox/ident"
+	"sour.is/x/toolbox/log"
 	"sour.is/x/profile/internal/profile"
 )
 

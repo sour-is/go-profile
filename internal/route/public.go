@@ -1,6 +1,6 @@
 package route
 
-import "sour.is/go/httpsrv"
+import "sour.is/x/toolbox/httpsrv"
 
 func init() {
 	httpsrv.AssetRegister("profile", httpsrv.AssetRoutes{

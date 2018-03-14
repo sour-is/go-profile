@@ -3,3 +3,4 @@
 /config.toml
 /bin/data
 /vendor
+/internal/route/bindata.go

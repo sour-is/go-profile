@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"sour.is/go/dbm"
-	"sour.is/go/httpsrv"
-	"sour.is/go/ident"
+	"sour.is/x/toolbox/dbm"
+	"sour.is/x/toolbox/httpsrv"
+	"sour.is/x/toolbox/ident"
 	"sour.is/x/profile/internal/model"
 )
 

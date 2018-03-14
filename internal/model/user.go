@@ -4,8 +4,8 @@ import (
 	"database/sql"
 
 	sq "gopkg.in/Masterminds/squirrel.v1"
-	"sour.is/go/dbm"
-	"sour.is/go/log"
+	"sour.is/x/toolbox/dbm"
+	"sour.is/x/toolbox/log"
 )
 
 type UserRole struct {

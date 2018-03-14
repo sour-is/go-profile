@@ -63,7 +63,7 @@
 
 [[constraint]]
   branch = "master"
-  name = "sour.is/go"
+  name = "sour.is/x/toolbox"
 
 [prune]
   go-tests = true
