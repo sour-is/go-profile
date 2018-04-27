@@ -21,7 +21,7 @@ $(BINARY): $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	go build -ldflags "-X main.AppVersion=VERSION-SNAPSHOT -X main.AppBuild=$${DATE}"
 
 $(ROUTE_ASSET): $(ROUTE_FILES)
-	export PATH=$$GOPATH/bin:$$PATH; cd internal/route; go-bindata-assetfs -pkg route -prefix ../../ ../../public/ ../../public/ui
+	export PATH=$$GOPATH/bin:$$PATH; go generate -v sour.is/x/profile/internal/route
 
 $(SCHEMA_ASSET): $(SCHEMA_FILES)
 	export PATH=$$GOPATH/bin:$$PATH; go-bindata -pkg main schema/

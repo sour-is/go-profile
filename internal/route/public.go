@@ -7,3 +7,5 @@ func init() {
 		{Name: "Assets", Path: "/", HandlerFunc: httpsrv.FsHtml5(assetFS())},
 	})
 }
+
+//go:generate go-bindata-assetfs -pkg route -prefix ../../ ../../public/ ../../public/ui

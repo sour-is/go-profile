@@ -25,3 +25,4 @@ func writeText(w http.ResponseWriter, code int, o string) {
 	w.WriteHeader(code)
 	w.Write([]byte(o))
 }
+
