@@ -51,18 +51,18 @@ var defaultConfig = `
 database   = "local"
 
 [db.local]
-type      = "mysql"
-connect   = "profile:profile@tcp(127.0.0.1:3306)/profile"
-migrate   = "true"
+type    = "mysql"
+connect = "profile:profile@tcp(127.0.0.1:3306)/profile"
+migrate = "true"
 
 [http]
-listen   = ":8060"
-identity = "souris"
+listen  = ":8060"
+idm     = "souris"
 
 [ldap]
-listen = ":3389"
-baseDN = "dc=sour,dc=is"
-domain = "sour.is"
+listen  = ":3389"
+baseDN  = "dc=sour,dc=is"
+domain  = "sour.is"
 `
 
 var args map[string]interface{}
