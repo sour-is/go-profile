@@ -5,6 +5,7 @@ import (
 
 	sq "gopkg.in/Masterminds/squirrel.v1"
 	"sour.is/x/toolbox/log"
+	"sour.is/x/toolbox/dbm"
 )
 
 type GroupUser struct {
@@ -21,7 +22,7 @@ type GroupRole struct {
 	AssignGroup  string
 }
 
-func GetAspectList(tx *sql.Tx, includeUsers bool) (lis []string, err error) {
+func GetAspectList(tx *dbm.Tx, includeUsers bool) (lis []string, err error) {
 	var rows *sql.Rows
 
 	s := sq.Select("`aspect`").
@@ -31,7 +32,7 @@ func GetAspectList(tx *sql.Tx, includeUsers bool) (lis []string, err error) {
 		s = s.Where("`aspect` NOT LIKE '@%'")
 	}
 
-	rows, err = s.RunWith(tx).Query()
+	rows, err = s.RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Debug(err)
@@ -53,13 +54,13 @@ func GetAspectList(tx *sql.Tx, includeUsers bool) (lis []string, err error) {
 	return
 }
 
-func GetGroupList(tx *sql.Tx, aspect string) (lis []string, err error) {
+func GetGroupList(tx *dbm.Tx, aspect string) (lis []string, err error) {
 	var rows *sql.Rows
 
 	rows, err = sq.Select("`group`").
 		From("`group`").
 		Where(sq.Eq{"`aspect`": aspect}).
-		RunWith(tx).Query()
+		RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Debug(err)
@@ -81,7 +82,7 @@ func GetGroupList(tx *sql.Tx, aspect string) (lis []string, err error) {
 	return
 }
 
-func HasGroup(tx *sql.Tx, aspect, group string) (bool, error) {
+func HasGroup(tx *dbm.Tx, aspect, group string) (bool, error) {
 	var id int
 	var err error
 
@@ -90,7 +91,7 @@ func HasGroup(tx *sql.Tx, aspect, group string) (bool, error) {
 		Where(sq.Eq{
 			"`aspect`": aspect,
 			"`group`":  group}).
-		RunWith(tx).QueryRow().Scan(&id)
+		RunWith(tx.Tx).QueryRow().Scan(&id)
 
 	if err != nil {
 		log.Debug(err.Error())
@@ -100,7 +101,7 @@ func HasGroup(tx *sql.Tx, aspect, group string) (bool, error) {
 	return id > 0, err
 }
 
-func GetGroupId(tx *sql.Tx, aspect, group string, lock bool) (int, error) {
+func GetGroupId(tx *dbm.Tx, aspect, group string, lock bool) (int, error) {
 	var id int
 	var err error
 
@@ -114,7 +115,7 @@ func GetGroupId(tx *sql.Tx, aspect, group string, lock bool) (int, error) {
 		s.Suffix("LOCK IN SHARE MODE")
 	}
 
-	err = s.RunWith(tx).QueryRow().Scan(&id)
+	err = s.RunWith(tx.Tx).QueryRow().Scan(&id)
 
 	if err != nil {
 		log.Debug(err.Error())
@@ -124,7 +125,7 @@ func GetGroupId(tx *sql.Tx, aspect, group string, lock bool) (int, error) {
 	return id, err
 }
 
-func PutGroupId(tx *sql.Tx, aspect, group string) (int, error) {
+func PutGroupId(tx *dbm.Tx, aspect, group string) (int, error) {
 	var id int64
 	var err error
 
@@ -132,7 +133,7 @@ func PutGroupId(tx *sql.Tx, aspect, group string) (int, error) {
 	res, err = sq.Insert("`group`").
 		Columns("`aspect`", "`group`").
 		Values(aspect, group).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 
 	if err != nil {
 		log.Debug(err.Error())
@@ -144,7 +145,7 @@ func PutGroupId(tx *sql.Tx, aspect, group string) (int, error) {
 	return int(id), err
 }
 
-func HasGroupUser(tx *sql.Tx, group_id int, user string, lock bool) (bool, error) {
+func HasGroupUser(tx *dbm.Tx, group_id int, user string, lock bool) (bool, error) {
 
 	var ok int
 	var err error
@@ -159,7 +160,7 @@ func HasGroupUser(tx *sql.Tx, group_id int, user string, lock bool) (bool, error
 		s.Suffix("FOR UPDATE")
 	}
 
-	s.RunWith(tx).QueryRow().Scan(&ok)
+	s.RunWith(tx.Tx).QueryRow().Scan(&ok)
 
 	if err != nil {
 		log.Debug(err.Error())
@@ -171,13 +172,13 @@ func HasGroupUser(tx *sql.Tx, group_id int, user string, lock bool) (bool, error
 	return ok > 0, err
 }
 
-func GetGroupUsers(tx *sql.Tx, group_id int) (users []GroupUser, err error) {
+func GetGroupUsers(tx *dbm.Tx, group_id int) (users []GroupUser, err error) {
 	var rows *sql.Rows
 
 	rows, err = sq.Select("`group_id`", "`aspect`", "`group`", "`user`").
 		From("`group_users`").
 		Where(sq.Eq{"`group_id`": group_id}).
-		RunWith(tx).Query()
+		RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Debug(err)
@@ -199,7 +200,7 @@ func GetGroupUsers(tx *sql.Tx, group_id int) (users []GroupUser, err error) {
 	return
 }
 
-func GetGroupUserList(tx *sql.Tx, aspect, group string) (users []string, err error) {
+func GetGroupUserList(tx *dbm.Tx, aspect, group string) (users []string, err error) {
 	var lis []GroupUser
 
 	var group_id int
@@ -216,14 +217,14 @@ func GetGroupUserList(tx *sql.Tx, aspect, group string) (users []string, err err
 	return
 }
 
-func GetGroupRoles(tx *sql.Tx, group_id int) (roles []GroupRole, err error) {
+func GetGroupRoles(tx *dbm.Tx, group_id int) (roles []GroupRole, err error) {
 	var rows *sql.Rows
 
 	rows, err = sq.Select("`group_id`", "`aspect`", "`role`", "`assign_aspect`", "`assign_group`").
 		From("`group_roles`").
 		Where(sq.Eq{
 			"`group_id`": group_id}).
-		RunWith(tx).Query()
+		RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Debug(err)
@@ -246,7 +247,7 @@ func GetGroupRoles(tx *sql.Tx, group_id int) (roles []GroupRole, err error) {
 	return
 }
 
-func GetGroupRoleList(tx *sql.Tx, aspect, group string) (roles []string, err error) {
+func GetGroupRoleList(tx *dbm.Tx, aspect, group string) (roles []string, err error) {
 	var lis []GroupRole
 
 	var group_id int
@@ -264,7 +265,7 @@ func GetGroupRoleList(tx *sql.Tx, aspect, group string) (roles []string, err err
 }
 
 /*
-func PutGroupUsers(tx *sql.Tx, aspect, group string, newUsers []string) (err error) {
+func PutGroupUsers(tx *dbm.Tx, aspect, group string, newUsers []string) (err error) {
 	var oldUsers []string
 
 	var group_id int
@@ -304,7 +305,7 @@ func PutGroupUsers(tx *sql.Tx, aspect, group string, newUsers []string) (err err
 }
 */
 
-func PutGroupUser(tx *sql.Tx, aspect, group, user string) (ok bool, err error) {
+func PutGroupUser(tx *dbm.Tx, aspect, group, user string) (ok bool, err error) {
 
 	var group_id int
 	if ok, err = HasGroup(tx, aspect, group); err != nil {
@@ -334,7 +335,7 @@ func PutGroupUser(tx *sql.Tx, aspect, group, user string) (ok bool, err error) {
 	return true, err
 }
 
-func DeleteGroupUser(tx *sql.Tx, aspect, group, user string) (err error) {
+func DeleteGroupUser(tx *dbm.Tx, aspect, group, user string) (err error) {
 
 	var group_id int
 	var ok bool
@@ -364,25 +365,25 @@ func DeleteGroupUser(tx *sql.Tx, aspect, group, user string) (err error) {
 	return
 }
 
-func PutGroupUserId(tx *sql.Tx, group_id int, user string) (err error) {
+func PutGroupUserId(tx *dbm.Tx, group_id int, user string) (err error) {
 
 	log.Debugf("ADD: %d : %s", group_id, user)
 	_, err = sq.Insert("`group_user`").
 		Columns("`group_id`", "`user`").
 		Values(group_id, user).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 
 	return
 }
 
-func DeleteGroupUserId(tx *sql.Tx, group_id int, user string) (err error) {
+func DeleteGroupUserId(tx *dbm.Tx, group_id int, user string) (err error) {
 
 	log.Debugf("DEL: %d : %s", group_id, user)
 	_, err = sq.Delete("`group_user`").
 		Where(sq.Eq{
 			"`group_id`": group_id,
 			"`user`":     user}).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 
 	return
 }

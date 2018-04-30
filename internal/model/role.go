@@ -5,6 +5,7 @@ import (
 
 	sq "gopkg.in/Masterminds/squirrel.v1"
 	"sour.is/x/toolbox/log"
+	"sour.is/x/toolbox/dbm"
 )
 
 type RoleGroup struct {
@@ -15,7 +16,7 @@ type RoleGroup struct {
 	AssignGroup  string
 }
 
-func HasRoleGroup(tx *sql.Tx, aspect, role string, group_id int, lock bool) (bool, error) {
+func HasRoleGroup(tx *dbm.Tx, aspect, role string, group_id int, lock bool) (bool, error) {
 
 	var ok int
 	var err error
@@ -32,7 +33,7 @@ func HasRoleGroup(tx *sql.Tx, aspect, role string, group_id int, lock bool) (boo
 		s.Suffix("FOR UPDATE")
 	}
 
-	s.RunWith(tx).QueryRow().Scan(&ok)
+	s.RunWith(tx.Tx).QueryRow().Scan(&ok)
 
 	if err != nil {
 		log.Warning(err.Error())
@@ -44,7 +45,7 @@ func HasRoleGroup(tx *sql.Tx, aspect, role string, group_id int, lock bool) (boo
 	return ok > 0, err
 }
 
-func GetRoleGroups(tx *sql.Tx, aspect, role string, lock bool) (groups []RoleGroup, err error) {
+func GetRoleGroups(tx *dbm.Tx, aspect, role string, lock bool) (groups []RoleGroup, err error) {
 
 	var rows *sql.Rows
 
@@ -56,7 +57,7 @@ func GetRoleGroups(tx *sql.Tx, aspect, role string, lock bool) (groups []RoleGro
 		s.Suffix("LOCK FOR UPDATE")
 	}
 
-	rows, err = s.RunWith(tx).Query()
+	rows, err = s.RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Warning(err)
@@ -78,7 +79,7 @@ func GetRoleGroups(tx *sql.Tx, aspect, role string, lock bool) (groups []RoleGro
 	return
 }
 
-func GetRoleGroupList(tx *sql.Tx, aspect, role string) (lis []string, err error) {
+func GetRoleGroupList(tx *dbm.Tx, aspect, role string) (lis []string, err error) {
 
 	var roles []RoleGroup
 
@@ -93,7 +94,7 @@ func GetRoleGroupList(tx *sql.Tx, aspect, role string) (lis []string, err error)
 	return
 }
 
-func PutRoleGroup(tx *sql.Tx, aspect, role, assign, group string) (ok bool, err error) {
+func PutRoleGroup(tx *dbm.Tx, aspect, role, assign, group string) (ok bool, err error) {
 
 	var group_id int
 	if ok, err = HasGroup(tx, assign, group); err != nil {
@@ -122,7 +123,7 @@ func PutRoleGroup(tx *sql.Tx, aspect, role, assign, group string) (ok bool, err 
 	return true, err
 }
 
-func DeleteRoleGroup(tx *sql.Tx, aspect, role, assign, group string) (err error) {
+func DeleteRoleGroup(tx *dbm.Tx, aspect, role, assign, group string) (err error) {
 
 	var group_id int
 	var ok bool
@@ -151,19 +152,19 @@ func DeleteRoleGroup(tx *sql.Tx, aspect, role, assign, group string) (err error)
 	return
 }
 
-func PutRoleGroupId(tx *sql.Tx, aspect, role string, group_id int) error {
+func PutRoleGroupId(tx *dbm.Tx, aspect, role string, group_id int) error {
 
 	log.Debugf("ADD: %s / %s : %d", aspect, role, group_id)
 
 	_, err := sq.Insert("`group_role`").
 		Columns("`aspect`", "`role`", "`group_id`").
 		Values(aspect, role, group_id).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 
 	return err
 }
 
-func DeleteRoleGroupId(tx *sql.Tx, aspect, role string, group_id int) error {
+func DeleteRoleGroupId(tx *dbm.Tx, aspect, role string, group_id int) error {
 
 	log.Debugf("DEL: %s / %s : %d", aspect, role, group_id)
 
@@ -173,13 +174,13 @@ func DeleteRoleGroupId(tx *sql.Tx, aspect, role string, group_id int) error {
 			"`role`":     role,
 			"`group_id`": group_id,
 		}).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 
 	return err
 }
 
 /*
-func GetRoleGroupIds(tx *sql.Tx, aspect, role string) (lis []int, err error) {
+func GetRoleGroupIds(tx *dbm.Tx, aspect, role string) (lis []int, err error) {
 
 	var roles []RoleGroup
 
@@ -195,7 +196,7 @@ func GetRoleGroupIds(tx *sql.Tx, aspect, role string) (lis []int, err error) {
 }
 */
 /*
-func PutRoleGroups(tx *sql.Tx, aspect, role string, newGroups []string) (err error) {
+func PutRoleGroups(tx *dbm.Tx, aspect, role string, newGroups []string) (err error) {
 	var oldGroups []string
 
 	if oldGroups, err = GetRoleGroupIds(tx, aspect, role); err != nil {

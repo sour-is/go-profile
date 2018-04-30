@@ -2,7 +2,6 @@ package route
 
 import (
 	"crypto/sha256"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"hash/crc32"
@@ -79,7 +78,7 @@ func captchaTest(w http.ResponseWriter, r *http.Request) {
 	writeMsg(w, 200, "Valid Code")
 }
 
-func getCheckAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func getCheckAuth(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	allowAnon := false
 
 	if h := r.Header.Get("allowAnon"); h == "true" {
@@ -94,7 +93,7 @@ func getCheckAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	writeMsg(w, http.StatusOK, "OK")
 }
 
-func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func oauthAuth(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	defer r.Body.Close()
 
 	var req map[string]string
@@ -138,7 +137,7 @@ func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	var m map[string]string
 	atUser := "@" + strings.ToLower(i.GetIdentity())
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		if m, ok, err = model.GetHashMap(tx, atUser, client); err != nil {
 			return
 		}
@@ -161,7 +160,7 @@ func oauthAuth(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, m)
 }
-func oauthClient(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+func oauthClient(w httpsrv.ResponseWriter, r *http.Request, _ ident.Ident) {
 	client := r.URL.Query().Get("client_id")
 
 	ok, c, err := profile.GetHashMap("oauth-client", client)
@@ -232,7 +231,7 @@ func oauthToken(w http.ResponseWriter, r *http.Request) {
 
 	writeObject(w, http.StatusOK, o)
 }
-func oauthUser(w http.ResponseWriter, _ *http.Request, i ident.Ident) {
+func oauthUser(w httpsrv.ResponseWriter, _ *http.Request, i ident.Ident) {
 	if !i.IsActive() {
 		writeMsg(w, http.StatusForbidden, "NOT_AUTHORIZED")
 		return
@@ -329,7 +328,7 @@ func putRegister(w http.ResponseWriter, r *http.Request) {
 
 	writeMsg(w, http.StatusCreated, "USER_REGISTERED")
 }
-func postPasswd(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func postPasswd(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	defer r.Body.Close()
 
@@ -551,7 +550,7 @@ func rubiconSignoutToken(w http.ResponseWriter, r *http.Request) {
 
 /*
 
-func getCheckAuth(w http.ResponseWriter, r *http.Request) {
+func getCheckAuth(w httpsrv.ResponseWriter, r *http.Request) {
 	i := ident.Ident{}
 
 
@@ -567,7 +566,7 @@ func getCheckAuth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(s.Json())
 }
-func getCheckAuth2(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func getCheckAuth2(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	s := `{"sig": "TUzn2hDuXy0npeadUUOIa90OTE/oKMH2zr1RWGEWQYNSbrNPlJ9HbZ8cRuihFBHAcBICaVi4lgJkZGk0Fep3CQ==",
     	   "token": {
         		"aspect": "default",

@@ -6,8 +6,6 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"database/sql"
-
 	"sour.is/x/toolbox/dbm"
 	"sour.is/x/toolbox/httpsrv"
 	"sour.is/x/toolbox/ident"
@@ -23,14 +21,14 @@ func init() {
 	})
 }
 
-func getHashList(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func getHashList(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 
 	var lis []string
 	var allow bool
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		// has group role?
 		if allow, err = model.HasUserRoleTx(tx, i.GetAspect(), i.GetIdentity(), "owner", "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
@@ -65,7 +63,7 @@ func getHashList(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, lis)
 }
-func getHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func getHash(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	name := vars["name"]
@@ -74,7 +72,7 @@ func getHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	var allow bool
 	var m map[string]string
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		if ok, err = model.HasUserRoleTx(
 			tx,
 			i.GetAspect(),
@@ -122,7 +120,7 @@ func getHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, m)
 }
-func putHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func putHash(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	name := vars["name"]
@@ -140,7 +138,7 @@ func putHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	var allow bool
 	var m map[string]string
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		// has hash role?
 		allow, err = model.HasUserRoleTx(
 			tx,
@@ -189,7 +187,7 @@ func putHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusCreated, m)
 }
-func deleteHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func deleteHash(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	name := vars["name"]
@@ -198,7 +196,7 @@ func deleteHash(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	var allow bool
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		// has hash role?
 		allow, err = model.HasUserRoleTx(
 			tx,

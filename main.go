@@ -26,7 +26,6 @@ func main() {
 
 		log.Notice("Shutting Down Server")
 
-		httpsrv.Shutdown()
 		ldap.Shutdown()
 	}
 }

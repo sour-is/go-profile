@@ -1,7 +1,6 @@
 package route
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 
@@ -38,11 +37,11 @@ func init() {
 	})
 }
 
-func getAspects(w http.ResponseWriter, _ *http.Request, i ident.Ident) {
+func getAspects(w httpsrv.ResponseWriter, _ *http.Request, i ident.Ident) {
 	var lis []string
 
 	var allow bool
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		// has admin role?
 		if allow, err = model.HasUserRoleTx(tx, i.GetAspect(), i.GetIdentity(), "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
@@ -67,13 +66,13 @@ func getAspects(w http.ResponseWriter, _ *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, lis)
 }
-func getGroups(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+func getGroups(w httpsrv.ResponseWriter, r *http.Request, _ ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 
 	var lis []string
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		lis, err = model.GetGroupList(tx, aspect)
 		return
 	})
@@ -91,14 +90,14 @@ func getGroups(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
 	writeObject(w, http.StatusOK, lis)
 }
 
-func getGroupUsers(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+func getGroupUsers(w httpsrv.ResponseWriter, r *http.Request, _ ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	group := vars["group"]
 
 	var lis []string
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		lis, err = model.GetGroupUserList(tx, aspect, group)
 		return
 	})
@@ -115,7 +114,7 @@ func getGroupUsers(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
 
 	writeObject(w, http.StatusOK, lis)
 }
-func putGroupUser(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func putGroupUser(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	group := vars["group"]
@@ -132,7 +131,7 @@ func putGroupUser(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		return
 	}
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		// has group role?
 		if allow, err = model.HasUserRoleTx(tx, i.GetAspect(), i.GetIdentity(), "group+"+group, "owner", "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
@@ -163,7 +162,7 @@ func putGroupUser(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusCreated, "")
 }
-func deleteGroupUser(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func deleteGroupUser(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	group := vars["group"]
@@ -176,7 +175,7 @@ func deleteGroupUser(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		return
 	}
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		// has group role?
 		if allow, err = model.HasUserRoleTx(tx, i.GetAspect(), i.GetIdentity(), "group+"+group, "owner", "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
@@ -206,14 +205,14 @@ func deleteGroupUser(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	writeMsg(w, http.StatusNoContent, "No Content")
 }
 
-func getGroupRoles(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+func getGroupRoles(w httpsrv.ResponseWriter, r *http.Request, _ ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	group := vars["group"]
 
 	var lis []string
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		lis, err = model.GetGroupRoleList(tx, aspect, group)
 		return
 	})
@@ -231,7 +230,7 @@ func getGroupRoles(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
 
 	writeObject(w, http.StatusOK, lis)
 }
-func putGroupRole(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func putGroupRole(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	role := vars["role"]
@@ -247,7 +246,7 @@ func putGroupRole(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		return
 	}
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		// has role or owner?
 		if allow, err = model.HasUserRoleTx(tx, i.GetAspect(), i.GetIdentity(), "role+"+role, "owner", "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
@@ -279,7 +278,7 @@ func putGroupRole(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeMsg(w, http.StatusCreated, "Created")
 }
-func deleteGroupRole(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func deleteGroupRole(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	role := vars["role"]
@@ -296,7 +295,7 @@ func deleteGroupRole(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		return
 	}
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		// has role or owner?
 		if allow, err = model.HasUserRoleTx(tx, i.GetAspect(), i.GetIdentity(), "role+"+role, "owner", "admin"); err != nil {
 			writeMsg(w, http.StatusInternalServerError, err.Error())
@@ -325,14 +324,14 @@ func deleteGroupRole(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	writeMsg(w, http.StatusNoContent, "No Content")
 }
 
-func getRoleGroups(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+func getRoleGroups(w httpsrv.ResponseWriter, r *http.Request, _ ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	role := vars["role"]
 
 	var lis []string
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		lis, err = model.GetRoleGroupList(tx, aspect, role)
 		return
 	})
@@ -349,14 +348,14 @@ func getRoleGroups(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
 
 	writeObject(w, http.StatusOK, lis)
 }
-func getUserRoles(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
+func getUserRoles(w httpsrv.ResponseWriter, r *http.Request, _ ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := vars["aspect"]
 	user := vars["user"]
 
 	var lis []string
 
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		lis, err = model.GetUserRoleList(tx, aspect, user)
 		return
 	})
@@ -374,7 +373,7 @@ func getUserRoles(w http.ResponseWriter, r *http.Request, _ ident.Ident) {
 	writeObject(w, http.StatusOK, lis)
 }
 
-func getUserProfile(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func getUserProfile(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	aspect := i.GetAspect()
 	user := i.GetIdentity()
@@ -393,7 +392,7 @@ func getUserProfile(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, p)
 }
-func putUserProfile(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func putUserProfile(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	var err error
 
 	vars := mux.Vars(r)

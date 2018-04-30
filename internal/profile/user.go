@@ -2,7 +2,6 @@ package profile
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/hex"
 	"fmt"
 
@@ -49,7 +48,7 @@ const (
 	ProfileNone  = 0
 )
 
-func getUserProfileTx(tx *sql.Tx, aspect, user string, flag int) (p Profile, err error) {
+func getUserProfileTx(tx *dbm.Tx, aspect, user string, flag int) (p Profile, err error) {
 	user = strings.ToLower(user)
 	atUser := "@" + user
 
@@ -116,7 +115,7 @@ func getUserProfileTx(tx *sql.Tx, aspect, user string, flag int) (p Profile, err
 	p = Profile{user, aspect, global, app, local, roles, groups, last_log}
 	return
 }
-func putUserProfileTx(tx *sql.Tx, aspect, user string, profile Profile) (err error) {
+func putUserProfileTx(tx *dbm.Tx, aspect, user string, profile Profile) (err error) {
 	atUser := "@" + strings.ToLower(user)
 	var defaults map[string]string
 
@@ -177,7 +176,7 @@ func putUserProfileTx(tx *sql.Tx, aspect, user string, profile Profile) (err err
 	return
 }
 func GetUserProfile(aspect, user string, flag int) (p Profile, err error) {
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		p, err = getUserProfileTx(tx, aspect, user, flag)
 		return
 	})
@@ -189,7 +188,7 @@ func GetUserProfile(aspect, user string, flag int) (p Profile, err error) {
 }
 func PutUserProfile(aspect, user string, profile Profile) (err error) {
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		err = putUserProfileTx(tx, aspect, user, profile)
 		return
 	})
@@ -212,7 +211,7 @@ func pow(a, b int64) (p int64) {
 	return p
 }
 
-func passPin(user, password, secret string) (ok bool, check string, err error) {
+func passPin(_, password, secret string) (ok bool, check string, err error) {
 	h := sha1.New()
 	h.Write([]byte(password))
 	ck := h.Sum(nil)
@@ -231,7 +230,7 @@ func passPin(user, password, secret string) (ok bool, check string, err error) {
 	check = enc(sk)
 	return
 }
-func passScrypt(user, password, secret, salt string) (ok bool, check string, err error) {
+func passScrypt(_, password, secret, salt string) (ok bool, check string, err error) {
 	var N, n, p, r int64
 	var sk []byte
 	var ck []byte
@@ -330,7 +329,7 @@ func CreateUser(user, password string) (ok bool, err error) {
 
 	atUser := "@" + strings.ToLower(user)
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		if ok, err = model.HasHash(tx, atUser, "ident"); err != nil {
 			return
 		}
@@ -364,7 +363,7 @@ func CheckPassword(user, password string) (ok bool, err error) {
 	atUser := "@" + strings.ToLower(user)
 	var passwd map[string]string
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		if ok, err = model.HasHash(tx, atUser, "ident"); err != nil {
 			return
 		}
@@ -422,7 +421,7 @@ func CheckPassword(user, password string) (ok bool, err error) {
 	}
 
 	passwd["last_login"] = time.Now().UTC().Format("2006-01-02T15:04:05Z")
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		// Write to ident hash.
 		if err = model.PutHashMap(tx, atUser, "ident", passwd); err != nil {
 			return
@@ -454,7 +453,7 @@ func SetPassword(user, password string) (ok bool, err error) {
 	keys := make(map[string]string)
 	atUser := "@" + strings.ToLower(user)
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		if ok, err = model.HasHash(tx, atUser, "ident"); err != nil {
 			return
 		}
@@ -516,7 +515,7 @@ func MakeSession(aspect, user string, flag int) (token string, expires time.Time
 		profile_aspect = aspect
 	}
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		if err = model.PutHashMap(tx, "session", token, session); err != nil {
 			return
 		}
@@ -529,7 +528,7 @@ func MakeSession(aspect, user string, flag int) (token string, expires time.Time
 }
 func CheckSession(aspect, token string, flag int) (ok bool, user Profile, err error) {
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		var session map[string]string
 		if ok, err = model.HasHash(tx, "session", token); err != nil {
 			return
@@ -573,7 +572,7 @@ func CheckSession(aspect, token string, flag int) (ok bool, user Profile, err er
 func GetSession(token string) (ok bool, session Session, err error) {
 	var m map[string]string
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		if ok, err = model.HasHash(tx, "session", token); err != nil {
 			return
 		}
@@ -598,7 +597,7 @@ func GetSession(token string) (ok bool, session Session, err error) {
 	return
 }
 func DeleteSession(token string) (ok bool, err error) {
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 
 		if ok, err = model.HasHash(tx, "session", token); err != nil {
 			return
@@ -615,7 +614,6 @@ func DeleteSession(token string) (ok bool, err error) {
 }
 func CronSessions() {
 	log.Debug("[CRON Session] Waiting for HTTP Startup")
-	httpsrv.WaitShutdown.Add(1)
 	<-httpsrv.SignalStartup
 
 	log.Debug("[CRON Session] Initialized.")
@@ -631,7 +629,6 @@ Exit:
 		}
 	}
 
-	httpsrv.WaitShutdown.Done()
 }
 func CleanSessions() {
 	var err error
@@ -642,7 +639,7 @@ func CleanSessions() {
 	w["aspect"] = "session"
 	w["hash_key"] = "expires"
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		if lis, err = model.FindHashValue(tx, w); err != nil {
 			return
 		}

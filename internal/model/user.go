@@ -14,7 +14,7 @@ type UserRole struct {
 	Role   string
 }
 
-func HasUserRoleTx(tx *sql.Tx, aspect, user string, role ...string) (bool, error) {
+func HasUserRoleTx(tx *dbm.Tx, aspect, user string, role ...string) (bool, error) {
 	var ok int
 	var err error
 
@@ -24,7 +24,7 @@ func HasUserRoleTx(tx *sql.Tx, aspect, user string, role ...string) (bool, error
 			"`aspect`": []string{"*", aspect},
 			"`user`":   user,
 			"`role`":   role}).
-		RunWith(tx).QueryRow().Scan(&ok)
+		RunWith(tx.Tx).QueryRow().Scan(&ok)
 
 	if err != nil {
 		log.Warning(err.Error())
@@ -36,7 +36,7 @@ func HasUserRoleTx(tx *sql.Tx, aspect, user string, role ...string) (bool, error
 	return ok > 0, err
 }
 func HasUserRole(aspect, ident string, role ...string) (ok bool, err error) {
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		// has hash role?
 		ok, err = HasUserRoleTx(
 			tx,
@@ -49,13 +49,13 @@ func HasUserRole(aspect, ident string, role ...string) (ok bool, err error) {
 	return
 }
 
-func GetUserRoles(tx *sql.Tx, aspect, user string) (lis []UserRole, err error) {
+func GetUserRoles(tx *dbm.Tx, aspect, user string) (lis []UserRole, err error) {
 
 	var rows *sql.Rows
 	rows, err = sq.Select("DISTINCT `role`").
 		From("user_roles").
 		Where(sq.Eq{"`aspect`": []string{"*", aspect}, "`user`": user}).
-		RunWith(tx).Query()
+		RunWith(tx.Tx).Query()
 	if err != nil {
 		log.Debug(err)
 		return
@@ -75,7 +75,7 @@ func GetUserRoles(tx *sql.Tx, aspect, user string) (lis []UserRole, err error) {
 	return
 }
 
-func GetUserRoleList(tx *sql.Tx, aspect, user string) (lis []string, err error) {
+func GetUserRoleList(tx *dbm.Tx, aspect, user string) (lis []string, err error) {
 
 	lis = make([]string, 0, 1)
 	var roles []UserRole
@@ -96,7 +96,7 @@ type UserGroup struct {
 	Group  string
 }
 
-func HasUserGroup(tx *sql.Tx, aspect, user string, role ...string) (bool, error) {
+func HasUserGroup(tx *dbm.Tx, aspect, user string, role ...string) (bool, error) {
 
 	var ok int
 	var err error
@@ -107,7 +107,7 @@ func HasUserGroup(tx *sql.Tx, aspect, user string, role ...string) (bool, error)
 			"`aspect`": []string{"*", aspect},
 			"`user`":   user,
 			"`group`":  role}).
-		RunWith(tx).QueryRow().Scan(&ok)
+		RunWith(tx.Tx).QueryRow().Scan(&ok)
 
 	if err != nil {
 		log.Warning(err.Error())
@@ -119,13 +119,13 @@ func HasUserGroup(tx *sql.Tx, aspect, user string, role ...string) (bool, error)
 	return ok > 0, err
 }
 
-func GetUserGroups(tx *sql.Tx, aspect, user string) (lis []UserGroup, err error) {
+func GetUserGroups(tx *dbm.Tx, aspect, user string) (lis []UserGroup, err error) {
 
 	var rows *sql.Rows
 	rows, err = sq.Select("DISTINCT `group`").
 		From("group_users").
 		Where(sq.Eq{"`aspect`": []string{"*", aspect}, "`user`": user}).
-		RunWith(tx).Query()
+		RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Debug(err)
@@ -146,7 +146,7 @@ func GetUserGroups(tx *sql.Tx, aspect, user string) (lis []UserGroup, err error)
 	return
 }
 
-func GetUserGroupList(tx *sql.Tx, aspect, user string) (lis []string, err error) {
+func GetUserGroupList(tx *dbm.Tx, aspect, user string) (lis []string, err error) {
 
 	lis = make([]string, 0, 1)
 	var groups []UserGroup

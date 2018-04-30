@@ -5,6 +5,7 @@ import (
 
 	sq "gopkg.in/Masterminds/squirrel.v1"
 	"sour.is/x/toolbox/log"
+	"sour.is/x/toolbox/dbm"
 )
 
 type HashValue struct {
@@ -15,7 +16,7 @@ type HashValue struct {
 	Value  string
 }
 
-func HasHash(tx *sql.Tx, aspect, name string) (bool, error) {
+func HasHash(tx *dbm.Tx, aspect, name string) (bool, error) {
 	var ok int
 	var err error
 	//log.Debugf("CHK: %s/%s", aspect, name)
@@ -25,7 +26,7 @@ func HasHash(tx *sql.Tx, aspect, name string) (bool, error) {
 		Where(sq.Eq{
 			"`aspect`":    aspect,
 			"`hash_name`": name}).
-		RunWith(tx).QueryRow().Scan(&ok)
+		RunWith(tx.Tx).QueryRow().Scan(&ok)
 
 	if err != nil {
 		log.Warning(err)
@@ -35,13 +36,13 @@ func HasHash(tx *sql.Tx, aspect, name string) (bool, error) {
 	return ok > 0, err
 }
 
-func GetHashList(tx *sql.Tx, aspect string) (lis []string, err error) {
+func GetHashList(tx *dbm.Tx, aspect string) (lis []string, err error) {
 	var rows *sql.Rows
 
 	rows, err = sq.Select("`hash_name`").
 		From("`hash`").
 		Where(sq.Eq{"`aspect`": aspect}).
-		RunWith(tx).Query()
+		RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Warning(err)
@@ -59,7 +60,7 @@ func GetHashList(tx *sql.Tx, aspect string) (lis []string, err error) {
 	return
 }
 
-func GetHashId(tx *sql.Tx, aspect, name string, lock bool) (int, error) {
+func GetHashId(tx *dbm.Tx, aspect, name string, lock bool) (int, error) {
 	var id int
 	var err error
 
@@ -73,7 +74,7 @@ func GetHashId(tx *sql.Tx, aspect, name string, lock bool) (int, error) {
 		s.Suffix("LOCK IN SHARE MODE")
 	}
 
-	err = s.RunWith(tx).QueryRow().Scan(&id)
+	err = s.RunWith(tx.Tx).QueryRow().Scan(&id)
 
 	if err != nil {
 		log.Warning(err.Error())
@@ -82,7 +83,7 @@ func GetHashId(tx *sql.Tx, aspect, name string, lock bool) (int, error) {
 
 	return id, err
 }
-func PutHashId(tx *sql.Tx, aspect, name string) (int, error) {
+func PutHashId(tx *dbm.Tx, aspect, name string) (int, error) {
 	var id int64
 	var err error
 
@@ -90,7 +91,7 @@ func PutHashId(tx *sql.Tx, aspect, name string) (int, error) {
 	res, err = sq.Insert("`hash`").
 		Columns("`aspect`", "`hash_name`").
 		Values(aspect, name).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 
 	if err != nil {
 		log.Warning(err.Error())
@@ -101,11 +102,11 @@ func PutHashId(tx *sql.Tx, aspect, name string) (int, error) {
 
 	return int(id), err
 }
-func DeleteHashMapId(tx *sql.Tx, hash_id int) (err error) {
+func DeleteHashMapId(tx *dbm.Tx, hash_id int) (err error) {
 
 	_, err = sq.Delete("`hash_value`").
 		Where(sq.Eq{"`hash_id`": hash_id}).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 
 	if err != nil {
 		log.Warning(err.Error())
@@ -114,7 +115,7 @@ func DeleteHashMapId(tx *sql.Tx, hash_id int) (err error) {
 
 	_, err = sq.Delete("`hash`").
 		Where(sq.Eq{"`hash_id`": hash_id}).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 
 	if err != nil {
 		log.Warning(err.Error())
@@ -124,7 +125,7 @@ func DeleteHashMapId(tx *sql.Tx, hash_id int) (err error) {
 	return
 }
 
-func GetHashMap(tx *sql.Tx, aspect, name string) (hash map[string]string, ok bool, err error) {
+func GetHashMap(tx *dbm.Tx, aspect, name string) (hash map[string]string, ok bool, err error) {
 
 	hash = make(map[string]string)
 	var hash_id int
@@ -144,7 +145,7 @@ func GetHashMap(tx *sql.Tx, aspect, name string) (hash map[string]string, ok boo
 	//log.Debugf("MAP: %s/%s: %v ? %t", aspect, name, hash, ok)
 	return
 }
-func GetHashMapId(tx *sql.Tx, hash_id int) (hash map[string]string, err error) {
+func GetHashMapId(tx *dbm.Tx, hash_id int) (hash map[string]string, err error) {
 
 	hash = make(map[string]string)
 
@@ -160,7 +161,7 @@ func GetHashMapId(tx *sql.Tx, hash_id int) (hash map[string]string, err error) {
 
 	return
 }
-func PutHashMap(tx *sql.Tx, aspect, hash string, keys map[string]string) (err error) {
+func PutHashMap(tx *dbm.Tx, aspect, hash string, keys map[string]string) (err error) {
 
 	var ok bool
 	var hash_id int
@@ -217,7 +218,7 @@ func PutHashMap(tx *sql.Tx, aspect, hash string, keys map[string]string) (err er
 
 	return
 }
-func DeleteHashMap(tx *sql.Tx, aspect, name string) (ok bool, err error) {
+func DeleteHashMap(tx *dbm.Tx, aspect, name string) (ok bool, err error) {
 
 	var hash_id int
 
@@ -237,14 +238,14 @@ func DeleteHashMap(tx *sql.Tx, aspect, name string) (ok bool, err error) {
 	return
 }
 
-func GetHashKeyList(tx *sql.Tx, hash_id int) (lis []string, err error) {
+func GetHashKeyList(tx *dbm.Tx, hash_id int) (lis []string, err error) {
 	var rows *sql.Rows
 
 	rows, err = sq.Select("`hash_key`").
 		From("`hash_value`").
 		Where(sq.Eq{
 			"`hash_id`": hash_id}).
-		RunWith(tx).Query()
+		RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Warning(err)
@@ -264,13 +265,13 @@ func GetHashKeyList(tx *sql.Tx, hash_id int) (lis []string, err error) {
 
 	return
 }
-func GetHashValues(tx *sql.Tx, hash_id int) (lis []HashValue, err error) {
+func GetHashValues(tx *dbm.Tx, hash_id int) (lis []HashValue, err error) {
 	var rows *sql.Rows
 
 	rows, err = sq.Select("`hash_id`", "`aspect`", "`hash_name`", "`hash_key`", "`hash_value`").
 		From("`hash_values`").
 		Where(sq.Eq{"`hash_id`": hash_id}).
-		RunWith(tx).Query()
+		RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Warning(err)
@@ -291,7 +292,7 @@ func GetHashValues(tx *sql.Tx, hash_id int) (lis []HashValue, err error) {
 	return lis, err
 }
 
-func HasHashValueId(tx *sql.Tx, hash_id int, key string, lock bool) (bool, error) {
+func HasHashValueId(tx *dbm.Tx, hash_id int, key string, lock bool) (bool, error) {
 	var ok int
 	var err error
 
@@ -305,7 +306,7 @@ func HasHashValueId(tx *sql.Tx, hash_id int, key string, lock bool) (bool, error
 		s.Suffix("FOR UPDATE")
 	}
 
-	s.RunWith(tx).QueryRow().Scan(&ok)
+	s.RunWith(tx.Tx).QueryRow().Scan(&ok)
 
 	if err != nil {
 		log.Warning(err.Error())
@@ -314,42 +315,42 @@ func HasHashValueId(tx *sql.Tx, hash_id int, key string, lock bool) (bool, error
 
 	return ok > 0, err
 }
-func GetHashValueId(tx *sql.Tx, hash_id int, key string) (value string, err error) {
+func GetHashValueId(tx *dbm.Tx, hash_id int, key string) (value string, err error) {
 	s := sq.Select("`hash_value`").
 		From("`hash_value`").
 		Where(sq.Eq{
 			"`hash_id`":  hash_id,
 			"`hash_key`": key})
-	s.RunWith(tx).QueryRow().Scan(&value)
+	s.RunWith(tx.Tx).QueryRow().Scan(&value)
 	if err != nil {
 		return
 	}
 
 	return
 }
-func PutHashValueId(tx *sql.Tx, hash_id int, key, value string) (err error) {
+func PutHashValueId(tx *dbm.Tx, hash_id int, key, value string) (err error) {
 
 	log.Debugf("ADD: %d : %s = %s", hash_id, key, value)
 	_, err = sq.Insert("`hash_value`").
 		Columns("`hash_id`", "`hash_key`", "`hash_value`").
 		Values(hash_id, key, value).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 
 	return
 }
-func DeleteHashValueId(tx *sql.Tx, hash_id int, key string) (err error) {
+func DeleteHashValueId(tx *dbm.Tx, hash_id int, key string) (err error) {
 
 	log.Debugf("DEL: %d : %s ", hash_id, key)
 	_, err = sq.Delete("hash_value").
 		Where(sq.Eq{
 			"`hash_id`":  hash_id,
 			"`hash_key`": key}).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 
 	return
 }
 
-func GetHashValue(tx *sql.Tx, aspect, name, key string) (value string, ok bool, err error) {
+func GetHashValue(tx *dbm.Tx, aspect, name, key string) (value string, ok bool, err error) {
 
 	var hash_id int
 	if ok, err = HasHash(tx, aspect, name); err != nil {
@@ -377,7 +378,7 @@ func GetHashValue(tx *sql.Tx, aspect, name, key string) (value string, ok bool, 
 
 	return
 }
-func PutHashValue(tx *sql.Tx, aspect, name, key, value string) (err error) {
+func PutHashValue(tx *dbm.Tx, aspect, name, key, value string) (err error) {
 
 	var ok bool
 	var hash_id int
@@ -407,7 +408,7 @@ func PutHashValue(tx *sql.Tx, aspect, name, key, value string) (err error) {
 	err = PutHashValueId(tx, hash_id, name, value)
 	return
 }
-func DeleteHashValue(tx *sql.Tx, aspect, name, key string) (err error) {
+func DeleteHashValue(tx *dbm.Tx, aspect, name, key string) (err error) {
 	var hash_id int
 	var ok bool
 	if ok, err = HasHash(tx, aspect, name); err != nil {
@@ -434,14 +435,14 @@ func DeleteHashValue(tx *sql.Tx, aspect, name, key string) (err error) {
 	return
 }
 
-func FindHashValue(tx *sql.Tx, where map[string]interface{}) (lis []HashValue, err error) {
+func FindHashValue(tx *dbm.Tx, where map[string]interface{}) (lis []HashValue, err error) {
 
 	var rows *sql.Rows
 
 	rows, err = sq.Select("`hash_id`", "`aspect`", "`hash_name`", "`hash_key`", "`hash_value`").
 		From("`hash_values`").
 		Where(sq.Eq(where)).
-		RunWith(tx).Query()
+		RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Warning(err)

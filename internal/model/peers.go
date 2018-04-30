@@ -10,6 +10,7 @@ import (
 
 	"sour.is/x/toolbox/log"
 	"sour.is/x/toolbox/uuid"
+	"sour.is/x/toolbox/dbm"
 )
 
 var MAX_FILTER int = 40
@@ -27,13 +28,13 @@ type PeerNode struct {
 	Created string `json:"peer_created,omitempty"`
 }
 
-func GetPeerList(tx *sql.Tx, owner string) (lis []PeerNode, err error) {
+func GetPeerList(tx *dbm.Tx, owner string) (lis []PeerNode, err error) {
 	var rows *sql.Rows
 
 	s := sq.Select("`peer_id`", "`peer_name`").
 		From("`peers`.`peers`").
 		Where(sq.Eq{"lower(`peer_owner`)": owner})
-	rows, err = s.RunWith(tx).Query()
+	rows, err = s.RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Debug(err)
@@ -55,7 +56,7 @@ func GetPeerList(tx *sql.Tx, owner string) (lis []PeerNode, err error) {
 	return
 }
 
-func HasPeerNode(tx *sql.Tx, id string, lock bool) (_ bool, err error) {
+func HasPeerNode(tx *dbm.Tx, id string, lock bool) (_ bool, err error) {
 
 	s := sq.Select("`peer_id`").
 		From("`peers`.`peers`").
@@ -66,7 +67,7 @@ func HasPeerNode(tx *sql.Tx, id string, lock bool) (_ bool, err error) {
 	}
 
 	var ck string
-	err = s.RunWith(tx).QueryRow().Scan(&ck)
+	err = s.RunWith(tx.Tx).QueryRow().Scan(&ck)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
@@ -79,7 +80,7 @@ func HasPeerNode(tx *sql.Tx, id string, lock bool) (_ bool, err error) {
 	return id == ck, nil
 }
 
-func GetPeerNode(tx *sql.Tx, id string, lock bool) (p PeerNode, ok bool, err error) {
+func GetPeerNode(tx *dbm.Tx, id string, lock bool) (p PeerNode, ok bool, err error) {
 
 	s := sq.Select("`peer_id`", "`peer_name`", "`peer_note`", "`peer_family`", "`peer_country`", "`peer_nick`", "`peer_owner`", "`peer_type`", "`peer_active`", "`peer_created`").
 		From("`peers`.`peers`").
@@ -88,7 +89,7 @@ func GetPeerNode(tx *sql.Tx, id string, lock bool) (p PeerNode, ok bool, err err
 		s.Suffix("LOCK IN SHARE MODE")
 	}
 
-	err = s.RunWith(tx).QueryRow().Scan(&p.Id, &p.Name, &p.Note, &p.Family, &p.Country, &p.Nick, &p.Owner, &p.Type, &p.Active, &p.Created)
+	err = s.RunWith(tx.Tx).QueryRow().Scan(&p.Id, &p.Name, &p.Note, &p.Family, &p.Country, &p.Nick, &p.Owner, &p.Type, &p.Active, &p.Created)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return p, false, nil
@@ -102,14 +103,14 @@ func GetPeerNode(tx *sql.Tx, id string, lock bool) (p PeerNode, ok bool, err err
 	return p, ok, err
 }
 
-func (p PeerNode) Insert(tx *sql.Tx) (sp PeerNode, err error) {
+func (p PeerNode) Insert(tx *dbm.Tx) (sp PeerNode, err error) {
 	p.Id = uuid.V4()
 
 	var res sql.Result
 	s := sq.Insert("`peers`.`peers`").
 		Columns("`peer_id`", "`peer_name`", "`peer_note`", "`peer_family`", "`peer_country`", "`peer_nick`", "`peer_owner`", "`peer_type`").
 		Values(p.Id, p.Name, p.Note, p.Family, p.Country, p.Nick, p.Owner, p.Type)
-	res, err = s.RunWith(tx).Exec()
+	res, err = s.RunWith(tx.Tx).Exec()
 
 	if err != nil {
 		return
@@ -128,7 +129,7 @@ func (p PeerNode) Insert(tx *sql.Tx) (sp PeerNode, err error) {
 	return
 }
 
-func (p PeerNode) Update(tx *sql.Tx) (sp PeerNode, err error) {
+func (p PeerNode) Update(tx *dbm.Tx) (sp PeerNode, err error) {
 	var res sql.Result
 	res, err = sq.Update("`peers`.`peers`").
 		Set("`peer_name`", p.Name).
@@ -138,7 +139,7 @@ func (p PeerNode) Update(tx *sql.Tx) (sp PeerNode, err error) {
 		Set("`peer_type`", p.Type).
 		Set("`peer_nick`", p.Nick).
 		Where(sq.Eq{"`peer_id`": p.Id, "lower(`peer_owner`)": p.Owner}).
-		RunWith(tx).Exec()
+		RunWith(tx.Tx).Exec()
 	if err != nil {
 		log.Debug(err.Error())
 		return
@@ -157,11 +158,11 @@ func (p PeerNode) Update(tx *sql.Tx) (sp PeerNode, err error) {
 	return
 }
 
-func DeletePeerNode(tx *sql.Tx, id string) (err error) {
+func DeletePeerNode(tx *dbm.Tx, id string) (err error) {
 
 	s := sq.Delete("`peers`.`peers`").
 		Where(sq.Eq{"`peer_id`": id})
-	_, err = s.RunWith(tx).Exec()
+	_, err = s.RunWith(tx.Tx).Exec()
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil
@@ -288,7 +289,7 @@ func (o RegObject) StringSpace(space int) string {
 	return buf.String()
 }
 
-func HasRegObject(tx *sql.Tx, uuid string) (ok bool, err error) {
+func HasRegObject(tx *dbm.Tx, uuid string) (ok bool, err error) {
 	var rows *sql.Rows
 
 	s := sq.Select("DISTINCT `uuid`").
@@ -296,7 +297,7 @@ func HasRegObject(tx *sql.Tx, uuid string) (ok bool, err error) {
 		Where(sq.Eq{"`uuid`": uuid, "`field`": "@updated"})
 	log.Debug(s.ToSql())
 
-	rows, err = s.RunWith(tx).Query()
+	rows, err = s.RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Debug(err)
@@ -319,14 +320,14 @@ func HasRegObject(tx *sql.Tx, uuid string) (ok bool, err error) {
 	return
 }
 
-func GetRegObject(tx *sql.Tx, uuid string) (o RegObject, err error) {
+func GetRegObject(tx *dbm.Tx, uuid string) (o RegObject, err error) {
 	var rows *sql.Rows
 
 	s := sq.Select("`uuid`", "`seq`", "`field`", "`value`").
 		From("`profile`.`reg_values`").
 		Where(sq.Eq{"`uuid`": uuid}).OrderBy("`seq`")
 
-	rows, err = s.RunWith(tx).Query()
+	rows, err = s.RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Debug(err)
@@ -351,11 +352,11 @@ func GetRegObject(tx *sql.Tx, uuid string) (o RegObject, err error) {
 	return
 }
 
-func PutRegObject(tx *sql.Tx, o RegObject) (err error) {
+func PutRegObject(tx *dbm.Tx, o RegObject) (err error) {
 	log.Debugf("DELETE: %s", o.Uuid)
 
 	s := sq.Delete("`profile`.`reg_values`").Where(sq.Eq{"`uuid`": o.Uuid})
-	_, err = s.RunWith(tx).Exec()
+	_, err = s.RunWith(tx.Tx).Exec()
 	if err != nil {
 		log.Debug(err)
 		return
@@ -367,7 +368,7 @@ func PutRegObject(tx *sql.Tx, o RegObject) (err error) {
 		_, err = sq.Insert("`profile`.`reg_values`").
 			Columns("`uuid`", "`field`", "`value`").
 			Values(o.Uuid, row.Field, row.Value).
-			RunWith(tx).Exec()
+			RunWith(tx.Tx).Exec()
 
 		if err != nil {
 			log.Debug(err)
@@ -378,7 +379,7 @@ func PutRegObject(tx *sql.Tx, o RegObject) (err error) {
 	return
 }
 
-func GetRegObjects(tx *sql.Tx, query, filter string) (olis RegObjects, err error) {
+func GetRegObjects(tx *dbm.Tx, query, filter string) (olis RegObjects, err error) {
 	var rows *sql.Rows
 
 	log.Info(fmt.Sprintf("Query: %s", query))
@@ -433,7 +434,7 @@ func GetRegObjects(tx *sql.Tx, query, filter string) (olis RegObjects, err error
 		return
 	}
 
-	rows, err = s.RunWith(tx).Query()
+	rows, err = s.RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Debug(err)
@@ -472,14 +473,14 @@ func GetRegObjects(tx *sql.Tx, query, filter string) (olis RegObjects, err error
 	return
 }
 
-func GetRegAuth(tx *sql.Tx, name string) (o RegObject, err error) {
+func GetRegAuth(tx *dbm.Tx, name string) (o RegObject, err error) {
 	var rows *sql.Rows
 
 	s := sq.Select("`mntner`", "`pw_type`", "`pw_value`").
 		From("`profile`.`reg_auth`").
 		Where(sq.Eq{"`mntner`": name})
 
-	rows, err = s.RunWith(tx).Query()
+	rows, err = s.RunWith(tx.Tx).Query()
 
 	if err != nil {
 		log.Debug(err)
@@ -505,7 +506,7 @@ func GetRegAuth(tx *sql.Tx, name string) (o RegObject, err error) {
 	return
 }
 
-func GetParentNetLevel(tx *sql.Tx, min, max, typ string) (level int) {
+func GetParentNetLevel(tx *dbm.Tx, min, max, typ string) (level int) {
 
 	wmin := sq.And{sq.Eq{"`field`": "@netmin"}, sq.LtOrEq{"`value`": min}}
 	wmax := sq.And{sq.Eq{"`field`": "@netmax"}, sq.GtOrEq{"`value`": max}}
@@ -525,7 +526,7 @@ func GetParentNetLevel(tx *sql.Tx, min, max, typ string) (level int) {
 
 	log.Debug(s.ToSql())
 
-	rows, err := s.RunWith(tx).Query()
+	rows, err := s.RunWith(tx.Tx).Query()
 	if err != nil {
 		log.Error(err)
 		return
@@ -559,7 +560,7 @@ func GetParentNetLevel(tx *sql.Tx, min, max, typ string) (level int) {
 	return
 }
 
-func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
+func MoveChildNetLevel(tx *dbm.Tx, min, max string, step int) (err error) {
 
 	wmin := sq.And{sq.Eq{"`field`": "@netmin"}, sq.GtOrEq{"`value`": min}}
 	wmax := sq.And{sq.Eq{"`field`": "@netmax"}, sq.LtOrEq{"`value`": max}}
@@ -578,7 +579,7 @@ func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
 
 	log.Debug(s.ToSql())
 
-	rows, err := s.RunWith(tx).Query()
+	rows, err := s.RunWith(tx.Tx).Query()
 	if err != nil {
 		log.Debug(err)
 		return
@@ -604,7 +605,7 @@ func MoveChildNetLevel(tx *sql.Tx, min, max string, step int) (err error) {
 		_, err = sq.Update("`profile`.`reg_values`").
 			Set("`value`", v).
 			Where(sq.Eq{"`uuid`": k, "`field`": "@netlevel"}).
-			RunWith(tx).Exec()
+			RunWith(tx.Tx).Exec()
 
 		if err != nil {
 			log.Error(err)

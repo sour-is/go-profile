@@ -1,7 +1,6 @@
 package route
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -23,14 +22,14 @@ func init() {
 	})
 }
 
-func getNodes(w http.ResponseWriter, _ *http.Request, i ident.Ident) {
+func getNodes(w httpsrv.ResponseWriter, _ *http.Request, i ident.Ident) {
 	var lis []model.PeerNode
 
 	if !i.IsActive() {
 		writeMsg(w, http.StatusForbidden, "Access Denied")
 		return
 	}
-	err := dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err := dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		lis, err = model.GetPeerList(tx, i.GetIdentity())
 		return
 	})
@@ -41,7 +40,7 @@ func getNodes(w http.ResponseWriter, _ *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, lis)
 }
-func getNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func getNode(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
@@ -56,7 +55,7 @@ func getNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 		return
 	}
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		node, ok, err = model.GetPeerNode(tx, id, false)
 		return
 	})
@@ -71,7 +70,7 @@ func getNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusOK, node)
 }
-func putNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func putNode(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
@@ -98,7 +97,7 @@ func putNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	}
 
 	var ok bool
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		var check model.PeerNode
 		if check, ok, err = model.GetPeerNode(tx, id, true); err != nil {
 			return
@@ -130,7 +129,7 @@ func putNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 
 	writeObject(w, http.StatusCreated, node)
 }
-func deleteNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
+func deleteNode(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
@@ -143,7 +142,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request, i ident.Ident) {
 	var err error
 	var node model.PeerNode
 
-	err = dbm.Transaction(func(tx *sql.Tx) (err error) {
+	err = dbm.Transaction(func(tx *dbm.Tx) (err error) {
 		node, ok, err = model.GetPeerNode(tx, id, true)
 		if !ok {
 			writeMsg(w, http.StatusNotFound, "Not Found")
