@@ -125,17 +125,17 @@ func init() {
 
 		dbm.Config()
 
-		migrate := false
-		if viper.IsSet("database") {
-			pfx := "db." + viper.GetString("database") + ".migrate"
-			migrate = viper.GetBool(pfx)
-		}
-
-		if migrate {
-			if err = dbm.Migrate(dbm.Asset{File: Asset, Dir: AssetDir}); err != nil {
-				log.Fatal(err.Error())
-			}
-		}
+		//migrate := false
+		//if viper.IsSet("database") {
+		//	pfx := "db." + viper.GetString("database") + ".migrate"
+		//	migrate = viper.GetBool(pfx)
+		//}
+		//
+		//if migrate {
+		//	if err = dbm.Migrate(dbm.Asset{File: Asset, Dir: AssetDir}); err != nil {
+		//		log.Fatal(err.Error())
+		//	}
+		//}
 
 		if viper.IsSet("http") {
 			httpsrv.Config()
