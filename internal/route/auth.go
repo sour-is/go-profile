@@ -546,7 +546,7 @@ func rubiconSignoutToken(w http.ResponseWriter, r *http.Request) {
 	writeObject(w, http.StatusNoContent, "LOGGED_OUT")
 }
 
-// Check Auth
+// Check auth
 
 /*
 

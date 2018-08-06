@@ -35,17 +35,17 @@ func NewUser(r *http.Request) ident.Ident {
 
 	authorization := strings.Fields(r.Header.Get("authorization"))
 
-	var token, auth_type, aspect string
+	var token, authType, aspect string
 
 	switch len(authorization) {
 	case 3:
-		auth_type = authorization[0]
+		authType = authorization[0]
 		aspect = authorization[1]
 		token = authorization[2]
 
 		break
 	case 2:
-		auth_type = authorization[0]
+		authType = authorization[0]
 		aspect = "default"
 		token = authorization[1]
 
@@ -54,7 +54,7 @@ func NewUser(r *http.Request) ident.Ident {
 		return anon
 	}
 
-	switch auth_type {
+	switch authType {
 	case "Bearer":
 	case "souris":
 		break
@@ -65,7 +65,7 @@ func NewUser(r *http.Request) ident.Ident {
 	roles := make(map[string]bool)
 	groups := make(map[string]bool)
 
-	log.Debugf("Auth Token: [%s] Aspect: [%s]", token, aspect)
+	log.Debugf("auth Token: [%s] Aspect: [%s]", token, aspect)
 
 	var ok bool
 	var p profile.Profile
