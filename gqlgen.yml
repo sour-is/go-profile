@@ -1,0 +1,17 @@
+schema: ../../schema.graphql
+exec:
+  filename: ../../internal/graph/generated.go
+  package: graph
+model:
+  filename: ../../pkg/profile/generated.go
+  package: profile
+models:
+  ID:
+    model: sour.is/x/profile/pkg/profile.Uint
+  Uint:
+    model: sour.is/x/profile/pkg/profile.Uint
+  Date:
+    model: sour.is/x/profile/pkg/profile.NullTime
+  QueryInput:
+    model: sour.is/x/profile/pkg/profile.Athlete
+  

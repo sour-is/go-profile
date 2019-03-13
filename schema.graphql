@@ -1,0 +1,47 @@
+scalar Date
+scalar Uint
+
+"""# Phoenix Competition Management"""
+
+type Query {
+    me: Session!
+    appInfo: AppInfo!
+}
+
+"""QueryInput allows you to filter and page the search."""
+input QueryInput {
+
+    """
+    Composed of a rsql filter
+
+    example: `field==value;other!=something`
+    | Operator   | Description |
+    | :----:     | :---------- |
+    |  ;   and   | Logical AND |
+    |  ,   or    | Logical OR  |
+    |  ==  =eq=  | Equals      |
+    |  !=  =neq= | Not Equals  |
+    |  >   =gt=  | Greater     |
+    |  <   =lt=  | Less        |
+    |  >=  =ge=  | Greater or Equal |
+    |  <=  =le=  | Less or Equal    |
+    |  [  ]      | Lists of values `[ 1, 2, 3 ]` |
+    |  (  )      | Overide op order |
+    """
+    
+    search: String
+
+    """Limit the number of results to at most `limit`"""
+
+    limit:  Uint
+
+    """Where to start `limit`"""
+
+    offset: Uint
+
+    """
+    Sort by `column` `inc` or `dec`
+    *Not Implemented*
+    """
+    sort:   [String!]
+}

@@ -1,11 +1,12 @@
 ROUTE_ASSET=internal/route/bindata_assetfs.go
 ROUTE_FILES=public/*
 
-SCHEMA_ASSET=bindata.go
+SCHEMA_ASSET=cmd/profile/bindata.go
 SCHEMA_FILES=schema/*
 
-SOURCE=./*.go internal/*/*.go
-BINARY=profile
+SOURCE=./cmd/*/*.go internal/*/*.go
+CMD=sour.is/x/profile/cmd/profile
+BINARY=bin/profile
 
 all: $(BINARY)
 
@@ -18,18 +19,21 @@ fmt:   $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 
 $(BINARY): $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	export DATE=`date -u +%FT%TZ`; \
-	go build -ldflags "-X main.AppVersion=VERSION-SNAPSHOT -X main.AppBuild=$${DATE}"
+	go build \
+	   -o $(BINARY) \
+	   -ldflags "-X main.AppVersion=VERSION-SNAPSHOT -X main.AppBuild=$${DATE}" \
+	   $(CMD)
 
 $(ROUTE_ASSET): $(ROUTE_FILES)
 	export PATH=$$GOPATH/bin:$$PATH; go generate -v sour.is/x/profile/internal/route
 
 $(SCHEMA_ASSET): $(SCHEMA_FILES)
-	export PATH=$$GOPATH/bin:$$PATH; go-bindata -pkg main schema/
+	export PATH=$$GOPATH/bin:$$PATH; go-bindata -pkg main schema
 
 deploy: clean $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	cd debian && make && make deploy
 
 run: $(BINARY)
-	./profile -vv serve
+	bin/profile -vv serve
 
 .PHONEY: clean deploy fmt run
