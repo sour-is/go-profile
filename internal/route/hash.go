@@ -6,10 +6,10 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"sour.is/x/profile/internal/model"
 	"sour.is/x/toolbox/dbm"
 	"sour.is/x/toolbox/httpsrv"
 	"sour.is/x/toolbox/ident"
-	"sour.is/x/profile/internal/model"
 )
 
 func init() {
@@ -134,7 +134,6 @@ func putHash(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 		return
 	}
 
-	var ok bool
 	var allow bool
 	var m map[string]string
 
@@ -166,7 +165,7 @@ func putHash(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 			return
 		}
 
-		m, ok, err = model.GetHashMap(tx, aspect, name)
+		m, _, err = model.GetHashMap(tx, aspect, name)
 
 		return
 	})
