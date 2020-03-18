@@ -21,10 +21,10 @@ $(BINARY): $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	go build -ldflags "-X main.AppVersion=VERSION-SNAPSHOT -X main.AppBuild=$${DATE}"
 
 $(ROUTE_ASSET): $(ROUTE_FILES)
-	export PATH=$$GOPATH/bin:$$PATH; go generate -v sour.is/x/profile/internal/route
+	go generate -v sour.is/x/profile/internal/route
 
 $(SCHEMA_ASSET): $(SCHEMA_FILES)
-	export PATH=$$GOPATH/bin:$$PATH; go-bindata -pkg main schema/
+	go run github.com/sour-is/go-assetfs/cmd/assetfs -pkg main schema/
 
 deploy: clean $(SOURCE) $(SCHEMA_ASSET) $(ROUTE_ASSET)
 	cd debian && make && make deploy

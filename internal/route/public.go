@@ -8,4 +8,4 @@ func init() {
 	})
 }
 
-//go:generate go-bindata-assetfs -pkg route -prefix ../../ ../../public/ ../../public/ui
+//go:generate go run github.com/sour-is/go-assetfs/cmd/assetfs -pkg route -prefix ../../ ../../public/ ../../public/ui

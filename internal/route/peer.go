@@ -6,11 +6,15 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/microcosm-cc/bluemonday"
+
+	"sour.is/x/profile/internal/model"
 	"sour.is/x/toolbox/dbm"
 	"sour.is/x/toolbox/httpsrv"
 	"sour.is/x/toolbox/ident"
-	"sour.is/x/profile/internal/model"
 )
+
+var bm *bluemonday.Policy
 
 func init() {
 	httpsrv.IdentRegister("peer", httpsrv.IdentRoutes{
@@ -20,6 +24,8 @@ func init() {
 		{"putNode", "PUT", "/v1/peers/peer.node({id})", putNode},
 		{"putNode", "DELETE", "/v1/peers/peer.node({id})", deleteNode},
 	})
+
+	bm = bluemonday.UGCPolicy()
 }
 
 func getNodes(w httpsrv.ResponseWriter, _ *http.Request, i ident.Ident) {
@@ -85,6 +91,12 @@ func putNode(w httpsrv.ResponseWriter, r *http.Request, i ident.Ident) {
 		writeMsg(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	node.Name = bm.Sanitize(node.Name)
+	node.Note = bm.Sanitize(node.Note)
+	node.Country = bm.Sanitize(node.Country)
+	node.Nick = bm.Sanitize(node.Nick)
+	node.Type = bm.Sanitize(node.Type)
 
 	node.Id = id
 	if node.Owner == "" {

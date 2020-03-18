@@ -1,12 +1,12 @@
 package ident
 
-import "net/http"
 import (
+	"net/http"
 	"strings"
 
+	"sour.is/x/profile/internal/profile"
 	"sour.is/x/toolbox/ident"
 	"sour.is/x/toolbox/log"
-	"sour.is/x/profile/internal/profile"
 )
 
 func init() {
@@ -124,6 +124,23 @@ func (m User) HasGroup(g ...string) (ok bool) {
 		}
 	}
 	return
+}
+func (m User) GetGroups() []string {
+	var groups []string
+	for k := range m.groups {
+		groups = append(groups, k)
+	}
+	return groups
+}
+func (m User) GetRoles() []string {
+	var roles []string
+	for k := range m.roles {
+		roles = append(roles, k)
+	}
+	return roles
+}
+func (m User) GetMeta() map[string]string {
+	return nil
 }
 
 func (m User) IsActive() bool {

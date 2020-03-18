@@ -20,7 +20,7 @@ var domain string
 var baseDN string
 var server *ldap.Server
 
-var accessLog = stdlog.New(os.Stdout, "", log.Ldate|log.Ltime|log.LUTC)
+var accessLog = stdlog.New(os.Stdout, "", stdlog.Ldate|stdlog.Ltime|stdlog.LUTC)
 
 type ldapHandler struct{}
 

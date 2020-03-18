@@ -10,6 +10,7 @@ import (
 	"sour.is/x/toolbox/dbm"
 	"sour.is/x/toolbox/httpsrv"
 	"sour.is/x/toolbox/log"
+	"sour.is/x/toolbox/log/event"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "sour.is/x/profile/internal/ident"
@@ -75,11 +76,12 @@ func init() {
 	}
 
 	if args["-v"].(int) == 1 {
-		log.SetVerbose(log.Vinfo)
+		log.SetVerbose(event.VerbInfo)
+		log.Info("Verbose Logging.")
 	}
 	if args["-v"].(int) == 2 {
-		log.SetVerbose(log.Vdebug)
-		log.Notice("Debug Logging.")
+		log.SetVerbose(event.VerbDebug)
+		log.Debug("Very Verbose Logging.")
 	}
 
 	viper.SetConfigName("config")
